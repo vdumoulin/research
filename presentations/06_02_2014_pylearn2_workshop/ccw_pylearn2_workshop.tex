@@ -9,11 +9,6 @@
 \usepackage{listings}
 \usepackage{color}
 
-% \definecolor{black}{rgb}{0,0,0}
-% \definecolor{grey}{rgb}{0.6,0.6,0.6}
-% \definecolor{teal}{rgb}{0,0.5,0.5}
-% \definecolor{red}{rgb}{0.9,0.1,0}
-
 \usetheme[height=10mm]{Rochester}
 \usecolortheme[named=MidnightBlue]{structure}
 \setbeamertemplate{navigation symbols}{}
@@ -27,33 +22,6 @@
 % BODY
 %==============================================================================
 \begin{document}
-
-% \lstdefinestyle{custompython}{
-%     numbers=left,
-%     captionpos=b,
-%     basicstyle=\footnotesize\ttfamily,
-%     xleftmargin=\parindent,
-%     language=Python,
-%     showstringspaces=false,
-%     keywordstyle=\bfseries\color{black},
-%     commentstyle=\color{grey},
-%     identifierstyle=\color{teal},
-%     stringstyle=\color{red},
-% }
-
-% \lstdefinestyle{custombash}{
-%     numbers=left,
-%     captionpos=b,
-%     basicstyle=\tiny\ttfamily,
-%     xleftmargin=\parindent,
-%     language=bash,
-%     showstringspaces=false,
-%     keywordstyle=\bfseries\color{black},
-%     commentstyle=\color{grey},
-%     identifierstyle=\color{teal},
-%     stringstyle=\color{red},
-% }
-% \lstset{escapechar=@, style=custompython}
 
 %------------------------------------------------------------------------------
 % TITLE
@@ -113,9 +81,11 @@
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Accompanying material}
-    \begin{itemize}\addtolength{\itemsep}{2.0\baselineskip}
+    \begin{itemize}\addtolength{\itemsep}{3.0\baselineskip}
         \item{\Large Make sure you have access to a machine that has Pylearn2
               and its dependencies installed}
+        \item{\Large The whole presentation and accompanying material can be
+              found Github here: \url{http://goo.gl/nuJw9R}}
     \end{itemize}
 \end{frame}
 
@@ -290,12 +260,13 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{Train} object}
-
-    \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+    \Large
+    \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Drives the main training loop}
         \item{
             Responsible for
-            \begin{itemize}
+            \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+                \large
                 \item{Starting training}
                 \item{Stopping training}
                 \item{Putting together the training algorithm, the model and the
@@ -313,11 +284,13 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{TrainingAlgorithm} object}
-    \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+    \Large
+    \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Drives the epoch training loop}
         \item{
             Responsible for
-            \begin{itemize}
+            \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+                \large
                 \item{Setting up the model}
                 \item{Setting up the monitor}
                 \item{Compiling the Theano function for parameter updates}
@@ -334,11 +307,13 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{Model} object}
-    \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+    \Large
+    \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Represents the mathematical model you want to optimize}
         \item{
             Responsible for
-            \begin{itemize}
+            \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+                \large
                 \item{Implementing the mapping from input to output that's
                       described by the mathematical model}
                 \item{Describing the format of the data it expects to receive}
@@ -346,7 +321,7 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
             \end{itemize}
         }
         \item{There are multiple model frameworks (e.g. \textbf{MLP} and
-              \textbf{DBM}, each is specialized in a different way}
+              \textbf{DBM}, each is specialized in a different way)}
     \end{itemize}
 
 \end{frame}
@@ -356,12 +331,14 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{Dataset} object}
-    \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+    \Large
+    \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Wraps around the dataset on which you train}
         \item{Common interface for all data}
         \item{
             Responsible for
-            \begin{itemize}
+            \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+                \large
                 \item{Storing the data}
                 \item{Describing the format of the data it stores}
                 \item{Instantiating iterators to loop over the data}
@@ -378,7 +355,8 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{Cost} object}
-    \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+    \Large
+    \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Represents a performance metric you want to maximize for the model}
         \item{
             Responsible for
@@ -406,7 +384,8 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
         \item{Holds information relative to training}
         \item{
             Responsible for
-            \begin{itemize}
+            \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+                \large
                 \item{Aggregating monitored quantities during training}
                 \item{Compiling Theano function mapping input data to monitored
                       quantities}
@@ -441,7 +420,8 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{TrainExtension} object}
-    \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+    \Large
+    \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Represents a misc. task to be performed during training}
         \item{Gets called through \textbf{on\_monitor} (after the monitor has
               been called and \textbf{on\_save} (after the model has been saved)}
@@ -487,6 +467,7 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Pylearn2 overview: \textbf{scripts} directory}
+    \Large
     \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
         \item{\textbf{plot\_monitor.py}: interactively lets you plot channels of
               a trained model's monitor}
@@ -504,8 +485,10 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
 %------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Extending the library}
+    \LARGE
     Pylearn2 doesn't do what you want?
     \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
+            \Large
             \item{Look at the \textbf{pylearn-users} mailing list
                   (\url{https://groups.google.com/d/forum/pylearn-users})}
             \item{Ask your question there first; there probably is something
