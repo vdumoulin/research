@@ -112,7 +112,7 @@
     \end{center}
 
     \begin{itemize}\addtolength{\itemsep}{2.0\baselineskip}
-        \item{Predict the class: learn $p(\mathbf{x} \mid \mathbf{x})$}
+        \item{Predict the class: learn $p(\mathbf{y} \mid \mathbf{x})$}
         \item{$\mathbf{x} \in [0, 1]^{784}$ ($28 \times 28$ pixels unrolled
               into a 784-dimension vector)}
         \item{$\mathbf{y} \in \{0, 1\}^{10}$ (one-hot encoded)}
@@ -389,9 +389,6 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
                 \item{Aggregating monitored quantities during training}
                 \item{Compiling Theano function mapping input data to monitored
                       quantities}
-                \item{Describing the format of the input data it expects}
-                \item{Describing cost-related quantities that are to be
-                      monitored during training}
             \end{itemize}
         }
     \item{Monitored quantities are called \emph{channels} and are implemented in
@@ -424,7 +421,9 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
     \begin{itemize}\addtolength{\itemsep}{1.0\baselineskip}
         \item{Represents a misc. task to be performed during training}
         \item{Gets called through \textbf{on\_monitor} (after the monitor has
-              been called and \textbf{on\_save} (after the model has been saved)}
+              been called), \textbf{on\_save} (after the model has been saved)
+              and \textbf{on\_setup} (right after the model has been
+              instantiated)}
         \item{Use case: do early stopping (see \textbf{MonitorBasedSaveBest})}
     \end{itemize}
 
@@ -488,11 +487,12 @@ $ python ${PYLEARN2_LOCATION}/scripts/train.py \
     \LARGE
     Pylearn2 doesn't do what you want?
     \begin{itemize}\addtolength{\itemsep}{0.5\baselineskip}
-            \Large
+            \large
             \item{Look at the \textbf{pylearn-users} mailing list
-                  (\url{https://groups.google.com/d/forum/pylearn-users})}
-            \item{Ask your question there first; there probably is something
-                  implemented but well-hidden}
+                  (\url{https://groups.google.com/d/forum/pylearn-users}),
+                  the question might have been asked before}
+            \item{If nothing answers your question, ask it; there probably is
+                  something implemented but well-hidden}
             \item{If nothing suits your needs, most of the time subclassing one
                   element of the Pylearn2 library and overriding a few methods
                   is sufficient}
