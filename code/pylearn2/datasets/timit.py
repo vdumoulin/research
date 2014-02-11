@@ -12,22 +12,72 @@ __email__ = "dumouliv@iro"
 import os.path
 import functools
 import numpy
-import scipy
 from pylearn2.utils.iteration import resolve_iterator_class
 from pylearn2.datasets.dataset import Dataset
-from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.space import CompositeSpace, VectorSpace
 from pylearn2.utils import serial
 from pylearn2.utils import safe_zip
 from research.code.scripts.segmentaxis import segment_axis
-from research.code.pylearn2.utils.iteration import InfiniteDatasetIterator
+from research.code.pylearn2.utils.iteration import FiniteDatasetIterator
 
 
-class TIMIT(object):
+class TIMIT(Dataset):
     """
-    Base class for the TIMIT dataset. Implements the logic for loading the data
-    from disk.
+    Frame-based TIMIT dataset
     """
+    _default_seed = (17, 2, 946)
+
+    def __init__(self, which_set, frame_length, overlap=0,
+                 frames_per_example=1, rng=_default_seed):
+        """
+        Parameters
+        ----------
+        which_set : str
+            Either "train", "valid" or "test"
+        frame_length : int
+            Number of acoustic samples contained in a frame
+        overlap : int, optional
+            Number of overlapping acoustic samples for two consecutive frames.
+            Defaults to 0, meaning frames don't overlap.
+        frames_per_example : int, optional
+            Number of frames in a training example. Defaults to 1.
+        rng : object, optional
+            A random number generator used for picking random indices into the
+            design matrix when choosing minibatches.
+        """
+        self.frame_length = frame_length
+        self.overlap = overlap
+        self.frames_per_example = frames_per_example
+        self.offset = self.frame_length - self.overlap
+        if hasattr(rng, 'random_integers'):
+            self.rng = rng
+        else:
+            self.rng = numpy.random.RandomState(rng)
+
+        # Load data from disk
+        self._load_data(which_set)
+
+        # Segment sequences
+        self.data, self.features_map, self.targets_map = format_sequences(
+            sequences=self.raw_wav,
+            frame_length=self.frame_length,
+            overlap=self.overlap,
+            frames_per_example=self.frames_per_example
+        )
+
+        # DataSpecs
+        X_space = VectorSpace(dim=self.frame_length * self.frames_per_example)
+        X_source = 'features'
+        y_space = VectorSpace(dim=self.frame_length)
+        y_source = 'targets'
+        space = CompositeSpace((X_space, y_space))
+        source = (X_source, y_source)
+        self.data_specs = (space, source)
+
+        # Defaults for iterators
+        self._iter_mode = resolve_iterator_class('shuffled_sequential')
+        self._iter_data_specs = self.data_specs
+
     def _load_data(self, which_set):
         """
         Load the TIMIT data from disk.
@@ -35,7 +85,7 @@ class TIMIT(object):
         Parameters
         ----------
         which_set : str
-            Either "train", "valid" or "test"
+            Subset of the dataset to use (either "train", "valid" or "test")
         """
         # Check which_set
         if which_set not in ['train', 'valid', 'test']:
@@ -65,7 +115,8 @@ class TIMIT(object):
         speaker_path = os.path.join(timit_base_path,
                                     which_set + "_spkr.npy")
 
-        # Load data
+        # Load data. For now most of it is not used, as only the acoustic
+        # samples are provided, but this is bound to change eventually.
         # Global data
         self.speaker_info_list = serial.load(
             speaker_info_list_path
@@ -82,211 +133,55 @@ class TIMIT(object):
         self.sequences_to_words = serial.load(sequences_to_words_path)
         self.speaker_id = numpy.asarray(serial.load(speaker_path), 'int')
 
-
-class AcousticTIMIT(DenseDesignMatrix, TIMIT):
-    """
-    Acoustic-sample-based TIMIT dataset
-    """
-    _default_seed = (17, 2, 946)
-
-    def __init__(self, which_set, frame_length, start=0, stop=None,
-                 rng=_default_seed):
+    def get_data(self):
         """
-        Parameters
-        ----------
-        which_set : str
-            Either "train", "valid" or "test"
-        frame_length : int
-            Number of acoustic samples contained in a frame
-        start : int, optional
-            Index of the Starting 
-        rng : object, optional
-            A random number generator used for picking random indices into the
-            design matrix when choosing minibatches.
+        Hacky way of complying with what FiniteDatasetIterator expects. It uses
+        this data only to determine if a cast is necessary.
+
+        In reality, the full data is not representable in memory, as it contains
+        too much duplicates.
+
+        .. todo::
+
+            Find something more elegant and robust
         """
-        self._load_data(which_set)
-
-        self.frame_length = frame_length
-
-        sequences = self.raw_wav[start:]
-        if stop is not None:
-            sequences = sequences[:stop]
-        segmented_sequences = [segment_axis(sequence, self.frame_length,
-                                            self.frame_length - 1)
-                               for sequence in sequences]
-        data = numpy.vstack(segmented_sequences)
-        import pdb; pdb.set_trace()
-
-        # uttfr = [data.frames(z, framelen, overlap) for z in
-        #           utterances]
-        # fr, ph = zip(*[(x[0], x[1]) for x in uttfr])
-        # fr = np.vstack(fr)*2**-15
-        # ph = list(itertools.chain(*ph))
-
-        # X = fr[:,0:framelen-1]
-        # y = np.array([fr[:,framelen-1]]).T # y.ndim has to be 2
-        # if stop is None:
-        #     stop = len(y)
-
-
-class FrameTIMIT(Dataset, TIMIT):
-    """
-    Frame-based TIMIT dataset
-    """
-    _default_seed = (17, 2, 946)
-
-    def __init__(self, which_set, frame_length, overlap=0,
-                 frames_per_example=1, rng=_default_seed):
-        """
-        Parameters
-        ----------
-        which_set : str
-            Either "train", "valid" or "test"
-        frame_length : int
-            Number of acoustic samples contained in a frame
-        overlap : int, optional
-            Number of overlapping acoustic samples for two consecutive frames.
-            Defaults to 0, meaning frames don't overlap.
-        frames_per_example : int, optional
-            Number of frames in a training example. Defaults to 1.
-        rng : object, optional
-            A random number generator used for picking random indices into the
-            design matrix when choosing minibatches.
-        """
-        # Load data from disk
-        self._load_data(which_set)
-
-        self.frame_length = frame_length
-        self.overlap = overlap
-        self.frames_per_example = frames_per_example
-
-        # Transform data in DenseDesignMatrix format
-        visiting_order = []
-        segmented_sequences = []
-        segmented_phonemes = []
-        segmented_words = []
-        segmented_speaker_info = []
-        for i, sequence in enumerate(self.raw_wav):
-            # Get the phonemes
-            phonemes_list_start = self.sequences_to_phonemes[i][0]
-            phonemes_list_end = self.sequences_to_phonemes[i][1]
-            phonemes_sequence = self.phonemes[phonemes_list_start:phonemes_list_end]
-            encoded_phonemes_sequence = numpy.zeros_like(sequence)
-            # Some timestamp does not correspond to any phoneme so 0 is
-            # the index for "NO_PHONEME" and the other index are shifted by one
-            for (phoneme_start, phoneme_end, phoneme) in phonemes_sequence:
-                encoded_phonemes_sequence[phoneme_start:phoneme_end] = phoneme + 1
-
-            # Get the words
-            words_list_start = self.sequences_to_words[i][0]
-            words_list_end = self.sequences_to_words[i][1]
-            words_sequence = self.words[words_list_start:words_list_end]
-            encoded_words_sequence = numpy.zeros_like(sequence)
-            # Some timestamp does not correspond to any word so 0 is
-            # the index for "NO_WORD" and the other index are shifted by one
-            for (word_start, word_end, word) in words_sequence:
-                encoded_words_sequence[word_start:word_end] = word + 1
-
-            # Binary variable announcing the end of the word or phoneme
-            end_phoneme = numpy.zeros_like(encoded_phonemes_sequence)
-            end_word = numpy.zeros_like(encoded_words_sequence)
-
-            for j in range(len(encoded_phonemes_sequence) - 1):
-                if encoded_phonemes_sequence[j] != encoded_phonemes_sequence[j+1]:
-                    end_phoneme[j] = 1
-                if encoded_words_sequence[j] != encoded_words_sequence[j+1]:
-                    end_word[j] = 1
-
-            end_phoneme[-1] = 1
-            end_word[-1] = 1
-
-            # Find the speaker id
-            speaker_id = self.speaker_id[i]
-            # Find the speaker info
-            speaker_info = self.speaker_info_list[speaker_id]
-
-            # Segment sequence
-            segmented_sequence = segment_axis(sequence, self.frame_length,
-                                              self.overlap)
-
-            # Take the most occurring phoneme in a sequence
-            segmented_encoded_phonemes_sequence = segment_axis(
-                encoded_phonemes_sequence,
-                self.frame_length,
-                self.overlap
-            )
-            segmented_encoded_phonemes_sequence = scipy.stats.mode(
-                segmented_encoded_phonemes_sequence,
-                axis=1
-            )[0].flatten()
-            segmented_encoded_phonemes_sequence = numpy.asarray(
-                segmented_encoded_phonemes_sequence, dtype='int'
-            )
-
-            # Take the most occurring word in a sequence
-            segmented_encoded_words_sequence = segment_axis(
-                encoded_words_sequence, self.frame_length, self.overlap
-            )
-            segmented_encoded_words_sequence = scipy.stats.mode(
-                segmented_encoded_words_sequence,
-                axis=1
-            )[0].flatten()
-            segmented_encoded_words_sequence = numpy.asarray(
-                segmented_encoded_words_sequence,
-                dtype='int'
-            )
-
-            # Announce the end if and only if it was announced in the current frame
-            end_phoneme = segment_axis(end_phoneme, self.frame_length,
-                                       self.overlap)
-            end_phoneme = end_phoneme.max(axis=1)
-            end_word = segment_axis(end_word, self.frame_length, self.overlap)
-            end_word = end_word.max(axis=1)
-
-            segmented_sequences.append(segmented_sequence)
-
-            self.raw_wav[i] = segmented_sequence
-
-            for j in xrange(0, segmented_sequence.shape[0] - self.frames_per_example):
-                visiting_order.append((i, j))
-
-        self.visiting_order = visiting_order
-
-        # DataSpecs
-        X_space = VectorSpace(dim=self.frame_length * self.frames_per_example)
-        X_source = 'features'
-        y_space = VectorSpace(dim=self.frame_length)
-        y_source = 'targets'
-        space = CompositeSpace((X_space, y_space))
-        source = (X_source, y_source)
-        self.data_specs = (space, source)
-
-        # Defaults for iterators
-        self._iter_mode = resolve_iterator_class('sequential')
-        self._iter_data_specs = self.data_specs
+        return (self.data, self.data)
 
     def get_data_specs(self):
         """
         Returns the data_specs specifying how the data is internally stored.
 
         This is the format the data returned by `self.get_data()` will be.
+
+        .. note::
+
+            Once again, this is very hacky, as the data is not stored that way
+            internally. However, the data that's returned by `TIMIT.get()`
+            _does_ respect those data specs.
         """
         return self.data_specs
 
-    def get_visiting_order(self):
-        return self.visiting_order
+    def get(self, indexes):
+        """
 
-    def get(self, index_tuple_list):
-        if type(index_tuple_list) is not list:
-            index_tuple_list = [index_tuple_list]
+        """
+        features_indexes = self.features_map[indexes]
+        targets_indexes = self.targets_map[indexes]
 
-        X = []
-        y = []
-        for sequence_id, index in index_tuple_list:
-            X.append(self.raw_wav[sequence_id][index:index +
-                                               self.frames_per_example].flatten())
-            y.append(self.raw_wav[sequence_id][index + self.frames_per_example])
-        return numpy.array(X), numpy.array(y)
+        # TODO: make a more memory-efficient version (such as allocating a
+        # buffer to put the data in instead of re-allocating memory at each
+        # call of this functin)
+        features_batch = []
+        targets_batch = []
+        for features_index, targets_index in safe_zip(features_indexes,
+                                                      targets_indexes):
+            features_batch.append(
+                self.data[features_index[0]: features_index[1]].ravel()
+            )
+            targets_batch.append(
+                self.data[targets_index]
+            )
+        return numpy.array(features_batch), numpy.array(targets_batch)
 
     @functools.wraps(Dataset.iterator)
     def iterator(self, mode=None, batch_size=None, num_batches=None,
@@ -331,13 +226,64 @@ class FrameTIMIT(Dataset, TIMIT):
             num_batches = getattr(self, '_iter_num_batches', None)
         if rng is None and mode.stochastic:
             rng = self.rng
-        return InfiniteDatasetIterator(self,
-                                       mode(len(self.visiting_order),
-                                            batch_size, num_batches, rng),
-                                       data_specs=data_specs,
-                                       return_tuple=return_tuple,
-                                       convert=convert)
+        return FiniteDatasetIterator(self,
+                                     mode(self.features_map.shape[0],
+                                          batch_size, num_batches, rng),
+                                     data_specs=data_specs,
+                                     return_tuple=return_tuple,
+                                     convert=convert)
+
+
+def format_sequences(sequences, frame_length, overlap, frames_per_example):
+    """
+    .. todo::
+
+        WRITEME
+    """
+    if 2 * overlap > frame_length:
+        raise ValueError("the overlap is too large. For now we only " +
+                         "support overlaps that are at most half of the " +
+                         "frame length.")
+
+    offset = frame_length - overlap
+
+    data = []
+    data_index = 0
+    map_index = 0
+    features_map = []
+    targets_map = []
+
+    for sequence in sequences:
+        # Cut sequence to the right order
+        sequence_length = sequence.shape[0]
+        excess_length = (sequence_length - frame_length) % offset
+        end_index = sequence_length - excess_length
+        data.append(sequence[:end_index])
+
+        # Pad with zeros
+        pad_length = frame_length - 2 * overlap
+        data.append(numpy.zeros(pad_length, dtype=sequence.dtype))
+
+        # Fill the features/targets map
+        num_frames = (sequence_length - frame_length) / offset + 1
+        num_examples = num_frames - frames_per_example
+        for i in xrange(num_examples):
+            features_map.append([data_index, data_index + frames_per_example])
+            targets_map.append(data_index + frames_per_example)
+            data_index += 1
+            map_index += 1
+        data_index += frames_per_example + 1
+
+    # Concatenate all sequences into a single numpy array
+    data = numpy.hstack(data)
+
+    return (segment_axis(data, frame_length, overlap),
+            numpy.asarray(features_map),
+            numpy.asarray(targets_map))
 
 
 if __name__ == "__main__":
-    timit = AcousticTIMIT("valid", frame_length=200)
+    timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
+    it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
+    for (f, t) in it:
+        print f.shape
