@@ -62,21 +62,30 @@ class TIMIT(Dataset):
         else:
             self.raw_wav = self.raw_wav[start:]
 
-        # Segment sequences
-        self.data, self.features_map, self.targets_map = format_sequences(
-            sequences=self.raw_wav,
-            frame_length=self.frame_length,
-            overlap=self.overlap,
-            frames_per_example=self.frames_per_example
-        )
+        features_map = []
+        targets_map = []
+        for sequence_id, sequence in enumerate(self.raw_wav):
+            segmented_sequence = segment_axis(sequence, frame_length, overlap)
+            self.raw_wav[sequence_id] = segmented_sequence
+
+            num_frames = segmented_sequence.shape[0]
+            num_examples = num_frames - self.frames_per_example
+            for example_id in xrange(num_examples):
+                features_map.append([sequence_id, example_id,
+                                     example_id + self.frames_per_example])
+                targets_map.append([sequence_id,
+                                    example_id + self.frames_per_example])
+
+        self.features_map = numpy.asarray(features_map)
+        self.targets_map = numpy.asarray(targets_map)
 
         # DataSpecs
         X_space = VectorSpace(dim=self.frame_length * self.frames_per_example)
         X_source = 'features'
-        X_dtype = self.data.dtype
+        X_dtype = self.raw_wav[0].dtype
         y_space = VectorSpace(dim=self.frame_length)
         y_source = 'targets'
-        y_dtype = self.data.dtype
+        y_dtype = self.raw_wav[0].dtype
         space = CompositeSpace((X_space, y_space))
         source = (X_source, y_source)
         self.data_specs = (space, source)
@@ -141,20 +150,6 @@ class TIMIT(Dataset):
         self.sequences_to_words = serial.load(sequences_to_words_path)
         self.speaker_id = numpy.asarray(serial.load(speaker_path), 'int')
 
-    def get_data(self):
-        """
-        Hacky way of complying with what FiniteDatasetIterator expects. It uses
-        this data only to determine if a cast is necessary.
-
-        In reality, the full data is not representable in memory, as it contains
-        too much duplicates.
-
-        .. todo::
-
-            Find something more elegant and robust
-        """
-        return (self.data, self.data)
-
     def dtype_of(self, source):
         """
         Returns the dtype of the requested source
@@ -192,10 +187,11 @@ class TIMIT(Dataset):
         for features_index, targets_index in safe_zip(features_indexes,
                                                       targets_indexes):
             features_batch.append(
-                self.data[features_index[0]: features_index[1]].ravel()
+                self.raw_wav[features_index[0]][features_index[1]:
+                                                features_index[2]].ravel()
             )
             targets_batch.append(
-                self.data[targets_index]
+                self.raw_wav[targets_index[0]][targets_index[1]]
             )
         return numpy.array(features_batch), numpy.array(targets_batch)
 
@@ -299,6 +295,6 @@ def format_sequences(sequences, frame_length, overlap, frames_per_example):
 
 if __name__ == "__main__":
     timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
-    it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
+    it = timit.iterator(mode='shuffled_sequential', batch_size=512)
     for (f, t) in it:
         print f.shape
