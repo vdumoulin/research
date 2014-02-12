@@ -1,0 +1,30 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:research.code.pylearn2.datasets.timit.TIMIT {
+        which_set: 'train',
+        frame_length: 240,
+        overlap: 20,
+        frames_per_example: 3,
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 512,
+        layers: [
+             !obj:pylearn2.models.mlp.Linear {
+                 dim: 240,
+                 layer_name: 'h1',
+                 irange: 0.05,
+             },
+        ],
+        nvis: 720,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .05,
+        monitoring_dataset: {
+            'train' : *train,
+        },
+        cost: !obj:pylearn2.costs.mlp.Default {},
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 10
+        },
+    },
+    save_path: "mlp.pkl",
+}
