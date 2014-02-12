@@ -68,11 +68,14 @@ class TIMIT(Dataset):
         # DataSpecs
         X_space = VectorSpace(dim=self.frame_length * self.frames_per_example)
         X_source = 'features'
+        X_dtype = self.data.dtype
         y_space = VectorSpace(dim=self.frame_length)
         y_source = 'targets'
+        y_dtype = self.data.dtype
         space = CompositeSpace((X_space, y_space))
         source = (X_source, y_source)
         self.data_specs = (space, source)
+        self.dtypes = (X_dtype, y_dtype)
 
         # Defaults for iterators
         self._iter_mode = resolve_iterator_class('shuffled_sequential')
@@ -147,6 +150,12 @@ class TIMIT(Dataset):
         """
         return (self.data, self.data)
 
+    def dtype_of(self, source):
+        """
+        Returns the dtype of the requested source
+        """
+        return self.dtypes[self.data_specs[1].index(source)]
+
     def get_data_specs(self):
         """
         Returns the data_specs specifying how the data is internally stored.
@@ -163,7 +172,9 @@ class TIMIT(Dataset):
 
     def get(self, indexes):
         """
+        .. todo::
 
+            WRITEME
         """
         features_indexes = self.features_map[indexes]
         targets_indexes = self.targets_map[indexes]
@@ -191,7 +202,6 @@ class TIMIT(Dataset):
 
             WRITEME
         """
-
         if data_specs is None:
             data_specs = self._iter_data_specs
 

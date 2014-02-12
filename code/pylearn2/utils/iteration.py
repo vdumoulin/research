@@ -22,8 +22,6 @@ class FiniteDatasetIterator(object):
         self._subset_iterator = subset_iterator
         self._return_tuple = return_tuple
 
-        # Keep only the needed sources in self._raw_data.
-        # Remember what source they correspond to in self._source
         assert is_flat_specs(data_specs)
 
         dataset_space, dataset_source = self._dataset.get_data_specs()
@@ -42,10 +40,6 @@ class FiniteDatasetIterator(object):
             dataset_sub_spaces = dataset_space.components
         assert len(dataset_source) == len(dataset_sub_spaces)
 
-        all_data = self._dataset.get_data()
-        if not isinstance(all_data, tuple):
-            all_data = (all_data,)
-
         space, source = data_specs
         if not isinstance(source, tuple):
             source = (source,)
@@ -54,10 +48,6 @@ class FiniteDatasetIterator(object):
         else:
             sub_spaces = space.components
         assert len(source) == len(sub_spaces)
-
-        self._raw_data = tuple(all_data[dataset_source.index(s)]
-                               for s in source)
-        self._source = source
 
         if convert is None:
             self._convert = [None for s in source]
@@ -73,7 +63,7 @@ class FiniteDatasetIterator(object):
             fn = init_fn
             # Compose the functions
             needs_cast = not (numpy.dtype(config.floatX) ==
-                              self._raw_data[i].dtype)
+                              self._dataset.dtype_of(so))
             if needs_cast:
                 if fn is None:
                     fn = lambda batch: numpy.cast[config.floatX](batch)
