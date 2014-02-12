@@ -64,6 +64,40 @@ class TIMIT(Dataset):
 
         features_map = []
         targets_map = []
+        
+        n_seq = len(self.raw_wav)
+        self.phn_seq = []
+        self.wrd_seq = []
+        for sequence_id in range(len(self.raw_wav)):
+            # Get the phonemes
+            phn_l_start = self.sequences_to_phonemes[sequence_id][0]
+            phn_l_end = self.sequences_to_phonemes[sequence_id][1]
+            phn_start_end = self.phonemes[phn_l_start:phn_l_end]
+            phn_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+            # Some timestamp does not correspond to any phoneme so 0 is 
+            # the index for "NO_PHONEME" and the other index are shifted by one
+            for (phn_start, phn_end, phn) in phn_start_end:
+                phn_sequence[phn_start:phn_end] = phn+1
+            
+            phn_segmented_sequence = segment_axis(phn_sequence, frame_length, overlap)
+            self.phn_seq.append(phn_segmented_sequence)
+            
+            # Get the words
+            wrd_l_start = self.sequences_to_words[sequence_id][0]
+            wrd_l_end = self.sequences_to_words[sequence_id][1]
+            wrd_start_end = self.words[wrd_l_start:wrd_l_end]
+            wrd_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+            # Some timestamp does not correspond to any word so 0 is 
+            # the index for "NO_WORD" and the other index are shifted by one
+            for (wrd_start, wrd_end, wrd) in wrd_start_end:
+                wrd_sequence[wrd_start:wrd_end] = wrd+1
+            
+            wrd_segmented_sequence = segment_axis(wrd_sequence, frame_length, overlap)
+            self.wrd_seq.append(wrd_segmented_sequence)
+        
+        self.phn_seq = numpy.array(self.phn_seq)
+        self.wrd_seq = numpy.array(self.wrd_seq)
+
         for sequence_id, sequence in enumerate(self.raw_wav):
             segmented_sequence = segment_axis(sequence, frame_length, overlap)
             self.raw_wav[sequence_id] = segmented_sequence
@@ -75,6 +109,8 @@ class TIMIT(Dataset):
                                      example_id + self.frames_per_example])
                 targets_map.append([sequence_id,
                                     example_id + self.frames_per_example])
+
+
 
         self.features_map = numpy.asarray(features_map)
         self.targets_map = numpy.asarray(targets_map)
