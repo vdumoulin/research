@@ -245,54 +245,6 @@ class TIMIT(Dataset):
                                      convert=convert)
 
 
-def format_sequences(sequences, frame_length, overlap, frames_per_example):
-    """
-    .. todo::
-
-        WRITEME
-    """
-    if 2 * overlap > frame_length:
-        raise ValueError("the overlap is too large. For now we only " +
-                         "support overlaps that are at most half of the " +
-                         "frame length.")
-
-    offset = frame_length - overlap
-
-    data = []
-    data_index = 0
-    map_index = 0
-    features_map = []
-    targets_map = []
-
-    for sequence in sequences:
-        # Cut sequence to the right order
-        sequence_length = sequence.shape[0]
-        excess_length = (sequence_length - frame_length) % offset
-        end_index = sequence_length - excess_length
-        data.append(sequence[:end_index])
-
-        # Pad with zeros
-        pad_length = frame_length - 2 * overlap
-        data.append(numpy.zeros(pad_length, dtype=sequence.dtype))
-
-        # Fill the features/targets map
-        num_frames = (sequence_length - frame_length) / offset + 1
-        num_examples = num_frames - frames_per_example
-        for i in xrange(num_examples):
-            features_map.append([data_index, data_index + frames_per_example])
-            targets_map.append(data_index + frames_per_example)
-            data_index += 1
-            map_index += 1
-        data_index += frames_per_example + 1
-
-    # Concatenate all sequences into a single numpy array
-    data = numpy.hstack(data)
-
-    return (segment_axis(data, frame_length, overlap),
-            numpy.asarray(features_map),
-            numpy.asarray(targets_map))
-
-
 if __name__ == "__main__":
     timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
     it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
