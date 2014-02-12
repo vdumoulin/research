@@ -125,3 +125,38 @@ def test_format_three_sequences_no_overlap():
         targets_map,
         numpy.array([1, 4, 5, 8])
     ).all()
+
+def test_format_three_sequences_unit_frame_length_no_overlap():
+    x = [numpy.arange(13), numpy.arange(16), numpy.arange(11)]
+    frame_length = 1
+    overlap = 0
+    frames_per_example = 8
+
+    segmented_x, features_map, targets_map = format_sequences(
+        sequences=x,
+        frame_length=frame_length,
+        overlap=overlap,
+        frames_per_example=frames_per_example
+    )
+
+    # Check for correctness of segmented sequences array
+    assert numpy.equal(segmented_x, numpy.array(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 1, 2, 3, 4, 5, 6, 7,
+         8, 9, 10, 11, 12, 13, 14, 15, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]
+    ).reshape((43, 1))).all()
+
+    # Check for correctness of features map array
+    assert numpy.equal(
+        features_map,
+        numpy.array([[0, 8], [1, 9], [2, 10], [3, 11], [4, 12],
+                     [14, 22], [15, 23], [16, 24], [17, 25], [18, 26],
+                     [19, 27], [20, 28], [21, 29], [31, 39], [32, 40],
+                     [33, 41]])
+    ).all()
+
+    # Check for correctness of targets map array
+    assert numpy.equal(
+        targets_map,
+        numpy.array([8, 9, 10, 11, 12, 22, 23, 24, 25, 26, 27, 28, 29, 39, 40,
+                     41])
+    ).all()
