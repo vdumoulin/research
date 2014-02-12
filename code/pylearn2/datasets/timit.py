@@ -28,7 +28,7 @@ class TIMIT(Dataset):
     _default_seed = (17, 2, 946)
 
     def __init__(self, which_set, frame_length, overlap=0,
-                 frames_per_example=1, rng=_default_seed):
+                 frames_per_example=1, start=0, stop=None, rng=_default_seed):
         """
         Parameters
         ----------
@@ -56,6 +56,11 @@ class TIMIT(Dataset):
 
         # Load data from disk
         self._load_data(which_set)
+
+        if stop is not None:
+            self.raw_wav = self.raw_wav[start:stop]
+        else:
+            self.raw_wav = self.raw_wav[start:]
 
         # Segment sequences
         self.data, self.features_map, self.targets_map = format_sequences(

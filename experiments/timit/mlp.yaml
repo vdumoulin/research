@@ -4,11 +4,13 @@
         frame_length: 240,
         overlap: 20,
         frames_per_example: 3,
+        start: 0,
+        stop: 100,
     },
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 512,
         layers: [
-             !obj:pylearn2.models.mlp.Linear {
+             !obj:pylearn2.models.mlp.Sigmoid {
                  dim: 240,
                  layer_name: 'h1',
                  irange: 0.05,
