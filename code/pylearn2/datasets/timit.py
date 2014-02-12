@@ -295,6 +295,6 @@ def format_sequences(sequences, frame_length, overlap, frames_per_example):
 
 if __name__ == "__main__":
     timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
-    it = timit.iterator(mode='shuffled_sequential', batch_size=512)
+    it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
     for (f, t) in it:
         print f.shape
