@@ -19,6 +19,7 @@ from pylearn2.utils import serial
 from pylearn2.utils import safe_zip
 from research.code.scripts.segmentaxis import segment_axis
 from research.code.pylearn2.utils.iteration import FiniteDatasetIterator
+import scipy.stats
 
 
 class TIMIT(Dataset):
@@ -80,6 +81,8 @@ class TIMIT(Dataset):
                 phn_sequence[phn_start:phn_end] = phn+1
             
             phn_segmented_sequence = segment_axis(phn_sequence, frame_length, overlap)
+            phn_segmented_sequence = scipy.stats.mode(phn_segmented_sequence, axis=1)[0].flatten()
+            phn_segmented_sequence = numpy.asarray(phn_segmented_sequence, dtype='int')
             self.phn_seq.append(phn_segmented_sequence)
             
             # Get the words
@@ -93,10 +96,13 @@ class TIMIT(Dataset):
                 wrd_sequence[wrd_start:wrd_end] = wrd+1
             
             wrd_segmented_sequence = segment_axis(wrd_sequence, frame_length, overlap)
+            wrd_segmented_sequence = scipy.stats.mode(wrd_segmented_sequence, axis=1)[0].flatten()
+            wrd_segmented_sequence = numpy.asarray(wrd_segmented_sequence, dtype='int')
             self.wrd_seq.append(wrd_segmented_sequence)
         
         self.phn_seq = numpy.array(self.phn_seq)
         self.wrd_seq = numpy.array(self.wrd_seq)
+        
 
         for sequence_id, sequence in enumerate(self.raw_wav):
             segmented_sequence = segment_axis(sequence, frame_length, overlap)
