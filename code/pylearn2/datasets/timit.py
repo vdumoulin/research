@@ -69,23 +69,34 @@ class TIMIT(Dataset):
         words_map = []
 
         n_seq = len(self.raw_wav)
-        self.phn_seq = []
+        self.phones_seq = []
+        self.phonemes_seq = []
         self.wrd_seq = []
         for sequence_id in range(len(self.raw_wav)):
             # Get the phonemes
             phn_l_start = self.sequences_to_phonemes[sequence_id][0]
             phn_l_end = self.sequences_to_phonemes[sequence_id][1]
-            phn_start_end = self.phonemes[phn_l_start:phn_l_end]
-            phn_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+            phonemes_start_end = self.phonemes[phn_l_start:phn_l_end]
+            phones_start_end = self.phones[phn_l_start:phn_l_end]
+            phonemes_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+            phones_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
             # Some timestamp does not correspond to any phoneme so 0 is 
             # the index for "NO_PHONEME" and the other index are shifted by one
-            for (phn_start, phn_end, phn) in phn_start_end:
-                phn_sequence[phn_start:phn_end] = phn+1
+            for (phn_start, phn_end, phn) in phonemes_start_end:
+                phonemes_sequence[phn_start:phn_end] = phn+1
+            
+            for (phn_start, phn_end, phn) in phones_start_end:
+                phones_sequence[phn_start:phn_end] = phn+1
 
-            phn_segmented_sequence = segment_axis(phn_sequence, frame_length, overlap)
-            phn_segmented_sequence = scipy.stats.mode(phn_segmented_sequence, axis=1)[0].flatten()
-            phn_segmented_sequence = numpy.asarray(phn_segmented_sequence, dtype='int')
-            self.phn_seq.append(phn_segmented_sequence)
+            phonemes_segmented_sequence = segment_axis(phonemes_sequence, frame_length, overlap)
+            phonemes_segmented_sequence = scipy.stats.mode(phonemes_segmented_sequence, axis=1)[0].flatten()
+            phonemes_segmented_sequence = numpy.asarray(phonemes_segmented_sequence, dtype='int')
+            self.phonemes_seq.append(phonemes_segmented_sequence)
+
+            phones_segmented_sequence = segment_axis(phones_sequence, frame_length, overlap)
+            phones_segmented_sequence = scipy.stats.mode(phones_segmented_sequence, axis=1)[0].flatten()
+            phones_segmented_sequence = numpy.asarray(phones_segmented_sequence, dtype='int')
+            self.phones_seq.append(phones_segmented_sequence)
 
             # Get the words
             wrd_l_start = self.sequences_to_words[sequence_id][0]
@@ -102,7 +113,8 @@ class TIMIT(Dataset):
             wrd_segmented_sequence = numpy.asarray(wrd_segmented_sequence, dtype='int')
             self.wrd_seq.append(wrd_segmented_sequence)
 
-        self.phn_seq = numpy.array(self.phn_seq)
+        self.phones_seq = numpy.array(self.phones_seq)
+        self.phonemes_seq = numpy.array(self.phonemes_seq)
         self.wrd_seq = numpy.array(self.wrd_seq)
 
         for sequence_id, sequence in enumerate(self.raw_wav):
@@ -147,11 +159,20 @@ class TIMIT(Dataset):
 
         phones_space = VectorSpace(dim=1)
         phones_source = 'phones'
-        phones_dtype = self.phn_seq[0].dtype
+        phones_dtype = self.phones_seq[0].dtype
         phones_map_fn = lambda indexes: [
-            self.phn_seq[index[0]][index[1]]
+            self.phones_seq[index[0]][index[1]]
             for index in phones_map[indexes]
         ]
+
+        phonemes_space = VectorSpace(dim=1)
+        phonemes_source = 'phonemes'
+        phonemes_dtype = self.phonemes_seq[0].dtype
+        phonemes_map_fn = lambda indexes: [
+            self.phonemes_seq[index[0]][index[1]]
+            for index in phones_map[indexes]
+        ]
+
 
         words_space = VectorSpace(dim=1)
         words_source = 'words'
@@ -162,13 +183,14 @@ class TIMIT(Dataset):
         ]
 
         space = CompositeSpace((features_space, targets_space, phones_space,
-                                words_space))
-        source = (features_source, targets_source, phones_source, words_source)
+                                phonemes_space, words_space))
+        source = (features_source, targets_source, phones_source, 
+                                phonemes_source, words_source)
         self.data_specs = (space, source)
         self.dtypes = (features_dtype, targets_dtype, phones_dtype,
-                       words_dtype)
+                       phonemes_dtype, words_dtype)
         self.map_functions = (features_map_fn, targets_map_fn, phones_map_fn,
-                              words_map_fn)
+                              phonemes_map_fn, words_map_fn)
 
         # Defaults for iterators
         self._iter_mode = resolve_iterator_class('shuffled_sequential')
@@ -204,6 +226,8 @@ class TIMIT(Dataset):
         raw_wav_path = os.path.join(timit_base_path, which_set + "_x_raw.npy")
         phonemes_path = os.path.join(timit_base_path,
                                      which_set + "_redux_phn.npy")
+        phones_path = os.path.join(timit_base_path,
+                                     which_set + "_phn.npy")
         sequences_to_phonemes_path = os.path.join(timit_base_path,
                                                   which_set +
                                                   "_seq_to_phn.npy")
@@ -226,6 +250,7 @@ class TIMIT(Dataset):
         # Set-related data
         self.raw_wav = serial.load(raw_wav_path)
         self.phonemes = serial.load(phonemes_path)
+        self.phones = serial.load(phones_path)
         self.sequences_to_phonemes = serial.load(sequences_to_phonemes_path)
         self.words = serial.load(words_path)
         self.sequences_to_words = serial.load(sequences_to_words_path)
