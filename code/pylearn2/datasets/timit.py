@@ -337,5 +337,6 @@ class TIMIT(Dataset):
 if __name__ == "__main__":
     timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
     it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
-    for (f, t) in it:
+    for tup in it:
+        import pdb; pdb.set_trace()
         print f.shape
