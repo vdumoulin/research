@@ -65,7 +65,9 @@ class TIMIT(Dataset):
 
         features_map = []
         targets_map = []
-        
+        phones_map = []
+        words_map = []
+
         n_seq = len(self.raw_wav)
         self.phn_seq = []
         self.wrd_seq = []
@@ -79,12 +81,12 @@ class TIMIT(Dataset):
             # the index for "NO_PHONEME" and the other index are shifted by one
             for (phn_start, phn_end, phn) in phn_start_end:
                 phn_sequence[phn_start:phn_end] = phn+1
-            
+
             phn_segmented_sequence = segment_axis(phn_sequence, frame_length, overlap)
             phn_segmented_sequence = scipy.stats.mode(phn_segmented_sequence, axis=1)[0].flatten()
             phn_segmented_sequence = numpy.asarray(phn_segmented_sequence, dtype='int')
             self.phn_seq.append(phn_segmented_sequence)
-            
+
             # Get the words
             wrd_l_start = self.sequences_to_words[sequence_id][0]
             wrd_l_end = self.sequences_to_words[sequence_id][1]
@@ -94,15 +96,14 @@ class TIMIT(Dataset):
             # the index for "NO_WORD" and the other index are shifted by one
             for (wrd_start, wrd_end, wrd) in wrd_start_end:
                 wrd_sequence[wrd_start:wrd_end] = wrd+1
-            
+
             wrd_segmented_sequence = segment_axis(wrd_sequence, frame_length, overlap)
             wrd_segmented_sequence = scipy.stats.mode(wrd_segmented_sequence, axis=1)[0].flatten()
             wrd_segmented_sequence = numpy.asarray(wrd_segmented_sequence, dtype='int')
             self.wrd_seq.append(wrd_segmented_sequence)
-        
+
         self.phn_seq = numpy.array(self.phn_seq)
         self.wrd_seq = numpy.array(self.wrd_seq)
-        
 
         for sequence_id, sequence in enumerate(self.raw_wav):
             segmented_sequence = segment_axis(sequence, frame_length, overlap)
@@ -115,27 +116,65 @@ class TIMIT(Dataset):
                                      example_id + self.frames_per_example])
                 targets_map.append([sequence_id,
                                     example_id + self.frames_per_example])
+                phones_map.append([sequence_id, example_id])
+                words_map.append([sequence_id, example_id])
 
+        features_map = numpy.asarray(features_map)
+        targets_map = numpy.asarray(targets_map)
+        phones_map = numpy.asarray(phones_map)
+        words_map = numpy.asarray(words_map)
 
-
-        self.features_map = numpy.asarray(features_map)
-        self.targets_map = numpy.asarray(targets_map)
+        self.num_examples = features_map.shape[0]
 
         # DataSpecs
-        X_space = VectorSpace(dim=self.frame_length * self.frames_per_example)
-        X_source = 'features'
-        X_dtype = self.raw_wav[0].dtype
-        y_space = VectorSpace(dim=self.frame_length)
-        y_source = 'targets'
-        y_dtype = self.raw_wav[0].dtype
-        space = CompositeSpace((X_space, y_space))
-        source = (X_source, y_source)
+        features_space = VectorSpace(
+            dim=self.frame_length * self.frames_per_example
+        )
+        features_source = 'features'
+        features_dtype = self.raw_wav[0].dtype
+        features_map_fn = lambda indexes: [
+            self.raw_wav[index[0]][index[1]:index[2]].ravel()
+            for index in features_map[indexes]
+        ]
+
+        targets_space = VectorSpace(dim=self.frame_length)
+        targets_source = 'targets'
+        targets_dtype = self.raw_wav[0].dtype
+        targets_map_fn = lambda indexes: [
+            self.raw_wav[index[0]][index[1]]
+            for index in targets_map[indexes]
+        ]
+
+        phones_space = VectorSpace(dim=1)
+        phones_source = 'phones'
+        phones_dtype = self.phn_seq[0].dtype
+        phones_map_fn = lambda indexes: [
+            self.phn_seq[index[0]][index[1]]
+            for index in phones_map[indexes]
+        ]
+
+        words_space = VectorSpace(dim=1)
+        words_source = 'words'
+        words_dtype = self.wrd_seq[0].dtype
+        words_map_fn = lambda indexes: [
+            self.wrd_seq[index[0]][index[1]]
+            for index in words_map[indexes]
+        ]
+
+        space = CompositeSpace((features_space, targets_space, phones_space,
+                                words_space))
+        source = (features_source, targets_source, phones_source, words_source)
         self.data_specs = (space, source)
-        self.dtypes = (X_dtype, y_dtype)
+        self.dtypes = (features_dtype, targets_dtype, phones_dtype,
+                       words_dtype)
+        self.map_functions = (features_map_fn, targets_map_fn, phones_map_fn,
+                              words_map_fn)
 
         # Defaults for iterators
         self._iter_mode = resolve_iterator_class('shuffled_sequential')
-        self._iter_data_specs = self.data_specs
+        self._iter_data_specs = (CompositeSpace((features_space,
+                                                 targets_space)),
+                                 (features_source, targets_source))
 
     def _load_data(self, which_set):
         """
@@ -186,17 +225,36 @@ class TIMIT(Dataset):
         self.phonemes_list = serial.load(phonemes_list_path)
         # Set-related data
         self.raw_wav = serial.load(raw_wav_path)
-        self.phonemes = serial.load(phonemes_path) 
+        self.phonemes = serial.load(phonemes_path)
         self.sequences_to_phonemes = serial.load(sequences_to_phonemes_path)
-        self.words = serial.load(words_path) 
+        self.words = serial.load(words_path)
         self.sequences_to_words = serial.load(sequences_to_words_path)
         self.speaker_id = numpy.asarray(serial.load(speaker_path), 'int')
+
+    def _validate_source(self, source):
+        """
+        Verify that all sources in the source tuple are provided by the
+        dataset. Raise an error if some requested source is not available.
+
+        Parameters
+        ----------
+        source : `tuple` of `str`
+            Requested sources
+        """
+        for s in source:
+            try:
+                self.data_specs[1].index(s)
+            except ValueError:
+                raise ValueError("the requested source named '" + s + "' " +
+                                 "is not provided by the dataset")
 
     def dtype_of(self, source):
         """
         Returns the dtype of the requested source
         """
-        return self.dtypes[self.data_specs[1].index(source)]
+        self._validate_source(source)
+        return tuple(self.dtypes[self.data_specs[1].index(so)]
+                     for so in source)
 
     def get_data_specs(self):
         """
@@ -212,30 +270,19 @@ class TIMIT(Dataset):
         """
         return self.data_specs
 
-    def get(self, indexes):
+    def get(self, source, indexes):
         """
         .. todo::
 
             WRITEME
         """
-        features_indexes = self.features_map[indexes]
-        targets_indexes = self.targets_map[indexes]
-
-        # TODO: make a more memory-efficient version (such as allocating a
-        # buffer to put the data in instead of re-allocating memory at each
-        # call of this functin)
-        features_batch = []
-        targets_batch = []
-        for features_index, targets_index in safe_zip(features_indexes,
-                                                      targets_indexes):
-            features_batch.append(
-                self.raw_wav[features_index[0]][features_index[1]:
-                                                features_index[2]].ravel()
+        self._validate_source(source)
+        return tuple(
+            numpy.asarray(
+                self.map_functions[self.data_specs[1].index(so)](indexes)
             )
-            targets_batch.append(
-                self.raw_wav[targets_index[0]][targets_index[1]]
-            )
-        return numpy.array(features_batch), numpy.array(targets_batch)
+            for so in source
+        )
 
     @functools.wraps(Dataset.iterator)
     def iterator(self, mode=None, batch_size=None, num_batches=None,
@@ -280,8 +327,8 @@ class TIMIT(Dataset):
         if rng is None and mode.stochastic:
             rng = self.rng
         return FiniteDatasetIterator(self,
-                                     mode(self.features_map.shape[0],
-                                          batch_size, num_batches, rng),
+                                     mode(self.num_examples, batch_size,
+                                          num_batches, rng),
                                      data_specs=data_specs,
                                      return_tuple=return_tuple,
                                      convert=convert)

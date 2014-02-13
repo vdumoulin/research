@@ -49,21 +49,23 @@ class FiniteDatasetIterator(object):
             sub_spaces = space.components
         assert len(source) == len(sub_spaces)
 
+        self._source = source
+
         if convert is None:
             self._convert = [None for s in source]
         else:
             assert len(convert) == len(source)
             self._convert = convert
 
-        for i, (so, sp) in enumerate(safe_zip(source, sub_spaces)):
+        dtypes = self._dataset.dtype_of(self._source)
+        for i, (so, sp, dt) in enumerate(safe_zip(source, sub_spaces, dtypes)):
             idx = dataset_source.index(so)
             dspace = dataset_sub_spaces[idx]
 
             init_fn = self._convert[i]
             fn = init_fn
             # Compose the functions
-            needs_cast = not (numpy.dtype(config.floatX) ==
-                              self._dataset.dtype_of(so))
+            needs_cast = not (numpy.dtype(config.floatX) == dt)
             if needs_cast:
                 if fn is None:
                     fn = lambda batch: numpy.cast[config.floatX](batch)
@@ -108,10 +110,10 @@ class FiniteDatasetIterator(object):
         next_index = self._subset_iterator.next()
         # TODO: handle fancy-index copies by allocating a buffer and
         # using numpy.take()
-
         rval = tuple(
-            fn(batch) if fn else batch for batch, fn
-            in safe_zip(self._dataset.get(next_index), self._convert)
+            fn(batch) if fn else batch for batch, fn in
+            safe_zip(self._dataset.get(self._source, next_index),
+                     self._convert)
         )
 
         if not self._return_tuple and len(rval) == 1:
