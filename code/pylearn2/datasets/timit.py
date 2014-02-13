@@ -50,6 +50,8 @@ class TIMIT(Dataset):
         self.overlap = overlap
         self.frames_per_example = frames_per_example
         self.offset = self.frame_length - self.overlap
+
+        # RNG initialization
         if hasattr(rng, 'random_integers'):
             self.rng = rng
         else:
@@ -58,70 +60,108 @@ class TIMIT(Dataset):
         # Load data from disk
         self._load_data(which_set)
 
+        # Slice data
         if stop is not None:
             self.raw_wav = self.raw_wav[start:stop]
+            self.sequences_to_phonemes = self.sequences_to_phonemes[start:stop]
+            self.sequences_to_words = self.sequences_to_words[start:stop]
         else:
             self.raw_wav = self.raw_wav[start:]
+            self.sequences_to_phonemes = self.sequences_to_phonemes[start:]
+            self.sequences_to_words = self.sequences_to_words[start:]
 
         features_map = []
         targets_map = []
         phones_map = []
+        phonemes_map = []
         words_map = []
 
-        n_seq = len(self.raw_wav)
-        self.phones_seq = []
-        self.phonemes_seq = []
-        self.wrd_seq = []
-        for sequence_id in range(len(self.raw_wav)):
-            # Get the phonemes
-            phn_l_start = self.sequences_to_phonemes[sequence_id][0]
-            phn_l_end = self.sequences_to_phonemes[sequence_id][1]
-            phonemes_start_end = self.phonemes[phn_l_start:phn_l_end]
-            phones_start_end = self.phones[phn_l_start:phn_l_end]
-            phonemes_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+        phones_sequence_list = []
+        phonemes_sequence_list = []
+        words_sequence_list = []
+
+        for sequence_id, tup in enumerate(safe_zip(self.raw_wav,
+                                                   self.sequences_to_phonemes,
+                                                   self.sequences_to_words)):
+
+            samples_sequence, phns_from_sequence, words_from_sequence = tup
+
+            # Phone/phonemes start/end indexes for this sequence_id
+            phns_start = phns_from_sequence[0]
+            phns_end = phns_from_sequence[1]
+            # Get the phones
+            # Note: some timestamps do not correspond to any phone, so 0 is the
+            #       index for "NO_PHONE" and the other indexes are shifted by
+            #       one
+            phones_start_end = self.phones[phns_start:phns_end]
             phones_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
-            # Some timestamp does not correspond to any phoneme so 0 is 
-            # the index for "NO_PHONEME" and the other index are shifted by one
-            for (phn_start, phn_end, phn) in phonemes_start_end:
-                phonemes_sequence[phn_start:phn_end] = phn+1
-            
-            for (phn_start, phn_end, phn) in phones_start_end:
-                phones_sequence[phn_start:phn_end] = phn+1
-
-            phonemes_segmented_sequence = segment_axis(phonemes_sequence, frame_length, overlap)
-            phonemes_segmented_sequence = scipy.stats.mode(phonemes_segmented_sequence, axis=1)[0].flatten()
-            phonemes_segmented_sequence = numpy.asarray(phonemes_segmented_sequence, dtype='int')
-            self.phonemes_seq.append(phonemes_segmented_sequence)
-
-            phones_segmented_sequence = segment_axis(phones_sequence, frame_length, overlap)
-            phones_segmented_sequence = scipy.stats.mode(phones_segmented_sequence, axis=1)[0].flatten()
-            phones_segmented_sequence = numpy.asarray(phones_segmented_sequence, dtype='int')
-            self.phones_seq.append(phones_segmented_sequence)
-
+            for (phone_start, phone_end, phone) in phones_start_end:
+                phones_sequence[phone_start:phone_end] = phone + 1
+            # Get the phonemes
+            # Note: some timestamps do not correspond to any phoneme, so 0 is
+            #       the index for "NO_PHONE" and the other indexes are shifted
+            #       by one
+            phonemes_start_end = self.phonemes[phns_start:phns_end]
+            phonemes_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+            for (phoneme_start, phoneme_end, phoneme) in phonemes_start_end:
+                phonemes_sequence[phoneme_start:phoneme_end] = phoneme + 1
             # Get the words
-            wrd_l_start = self.sequences_to_words[sequence_id][0]
-            wrd_l_end = self.sequences_to_words[sequence_id][1]
-            wrd_start_end = self.words[wrd_l_start:wrd_l_end]
-            wrd_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
-            # Some timestamp does not correspond to any word so 0 is 
-            # the index for "NO_WORD" and the other index are shifted by one
-            for (wrd_start, wrd_end, wrd) in wrd_start_end:
-                wrd_sequence[wrd_start:wrd_end] = wrd+1
+            # Note: some timestamps do not correspond to any word, so 0 is the
+            #       index for "NO_WORD" and the other indexes are shifted by
+            #       one
+            words_start = words_from_sequence[0]
+            words_end = words_from_sequence[1]
+            words_start_end = self.words[words_start:words_end]
+            words_sequence = numpy.zeros(len(self.raw_wav[sequence_id]))
+            for (word_start, word_end, word) in words_start_end:
+                words_sequence[word_start:word_end] = word + 1
 
-            wrd_segmented_sequence = segment_axis(wrd_sequence, frame_length, overlap)
-            wrd_segmented_sequence = scipy.stats.mode(wrd_segmented_sequence, axis=1)[0].flatten()
-            wrd_segmented_sequence = numpy.asarray(wrd_segmented_sequence, dtype='int')
-            self.wrd_seq.append(wrd_segmented_sequence)
+            # TODO: look at this, as it forces copying the data
+            # Sequence segmentation
+            samples_segmented_sequence = segment_axis(samples_sequence,
+                                                      frame_length,
+                                                      overlap)
+            self.raw_wav[sequence_id] = samples_segmented_sequence
+            # Phones segmentation
+            phones_segmented_sequence = segment_axis(phones_sequence,
+                                                     frame_length,
+                                                     overlap)
+            phones_segmented_sequence = scipy.stats.mode(
+                phones_segmented_sequence,
+                axis=1
+            )[0].flatten()
+            phones_segmented_sequence = numpy.asarray(
+                phones_segmented_sequence,
+                dtype='int'
+            )
+            phones_sequence_list.append(phones_segmented_sequence)
+            # Phonemes segmentation
+            phonemes_segmented_sequence = segment_axis(phonemes_sequence,
+                                                       frame_length,
+                                                       overlap)
+            phonemes_segmented_sequence = scipy.stats.mode(
+                phonemes_segmented_sequence,
+                axis=1
+            )[0].flatten()
+            phonemes_segmented_sequence = numpy.asarray(
+                phonemes_segmented_sequence,
+                dtype='int'
+            )
+            phonemes_sequence_list.append(phonemes_segmented_sequence)
+            # Words segmentation
+            words_segmented_sequence = segment_axis(words_sequence,
+                                                    frame_length,
+                                                    overlap)
+            words_segmented_sequence = scipy.stats.mode(
+                words_segmented_sequence,
+                axis=1
+            )[0].flatten()
+            words_segmented_sequence = numpy.asarray(words_segmented_sequence,
+                                                     dtype='int')
+            words_sequence_list.append(words_segmented_sequence)
 
-        self.phones_seq = numpy.array(self.phones_seq)
-        self.phonemes_seq = numpy.array(self.phonemes_seq)
-        self.wrd_seq = numpy.array(self.wrd_seq)
-
-        for sequence_id, sequence in enumerate(self.raw_wav):
-            segmented_sequence = segment_axis(sequence, frame_length, overlap)
-            self.raw_wav[sequence_id] = segmented_sequence
-
-            num_frames = segmented_sequence.shape[0]
+            # Generate features/targets/phones/phonemes/words map
+            num_frames = samples_segmented_sequence.shape[0]
             num_examples = num_frames - self.frames_per_example
             for example_id in xrange(num_examples):
                 features_map.append([sequence_id, example_id,
@@ -129,7 +169,13 @@ class TIMIT(Dataset):
                 targets_map.append([sequence_id,
                                     example_id + self.frames_per_example])
                 phones_map.append([sequence_id, example_id])
+                phonemes_map.append([sequence_id, example_id])
                 words_map.append([sequence_id, example_id])
+
+        self.samples_sequences = self.raw_wav
+        self.phones_sequences = numpy.array(phones_sequence_list)
+        self.phonemes_sequences = numpy.array(phonemes_sequence_list)
+        self.words_sequences = numpy.array(words_sequence_list)
 
         features_map = numpy.asarray(features_map)
         targets_map = numpy.asarray(targets_map)
@@ -143,49 +189,48 @@ class TIMIT(Dataset):
             dim=self.frame_length * self.frames_per_example
         )
         features_source = 'features'
-        features_dtype = self.raw_wav[0].dtype
+        features_dtype = self.samples_sequences[0].dtype
         features_map_fn = lambda indexes: [
-            self.raw_wav[index[0]][index[1]:index[2]].ravel()
+            self.samples_sequences[index[0]][index[1]:index[2]].ravel()
             for index in features_map[indexes]
         ]
 
         targets_space = VectorSpace(dim=self.frame_length)
         targets_source = 'targets'
-        targets_dtype = self.raw_wav[0].dtype
+        targets_dtype = self.samples_sequences[0].dtype
         targets_map_fn = lambda indexes: [
-            self.raw_wav[index[0]][index[1]]
+            self.samples_sequences[index[0]][index[1]]
             for index in targets_map[indexes]
         ]
 
         phones_space = VectorSpace(dim=1)
         phones_source = 'phones'
-        phones_dtype = self.phones_seq[0].dtype
+        phones_dtype = self.phones_sequences[0].dtype
         phones_map_fn = lambda indexes: [
-            self.phones_seq[index[0]][index[1]]
+            self.phones_sequences[index[0]][index[1]]
             for index in phones_map[indexes]
         ]
 
         phonemes_space = VectorSpace(dim=1)
         phonemes_source = 'phonemes'
-        phonemes_dtype = self.phonemes_seq[0].dtype
+        phonemes_dtype = self.phonemes_sequences[0].dtype
         phonemes_map_fn = lambda indexes: [
-            self.phonemes_seq[index[0]][index[1]]
+            self.phonemes_sequences[index[0]][index[1]]
             for index in phones_map[indexes]
         ]
 
-
         words_space = VectorSpace(dim=1)
         words_source = 'words'
-        words_dtype = self.wrd_seq[0].dtype
+        words_dtype = self.words_sequences[0].dtype
         words_map_fn = lambda indexes: [
-            self.wrd_seq[index[0]][index[1]]
+            self.words_sequences[index[0]][index[1]]
             for index in words_map[indexes]
         ]
 
         space = CompositeSpace((features_space, targets_space, phones_space,
                                 phonemes_space, words_space))
-        source = (features_source, targets_source, phones_source, 
-                                phonemes_source, words_source)
+        source = (features_source, targets_source, phones_source,
+                  phonemes_source, words_source)
         self.data_specs = (space, source)
         self.dtypes = (features_dtype, targets_dtype, phones_dtype,
                        phonemes_dtype, words_dtype)
@@ -362,6 +407,5 @@ class TIMIT(Dataset):
 if __name__ == "__main__":
     timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
     it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
-    for tup in it:
-        import pdb; pdb.set_trace()
+    for (f, t) in it:
         print f.shape
