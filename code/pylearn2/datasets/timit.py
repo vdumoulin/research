@@ -212,7 +212,7 @@ class TIMIT(Dataset):
         targets_source = 'targets'
         targets_dtype = self.samples_sequences[0].dtype
         targets_map_fn = lambda indexes: [
-            self.samples_sequences[index[0]][index[1]]
+            self.samples_sequences[index[0]][index[1]+self.frames_per_example]
             for index in examples_map[indexes]
         ]
 
