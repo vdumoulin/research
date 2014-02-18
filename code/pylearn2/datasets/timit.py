@@ -9,6 +9,7 @@ __maintainer__ = "Vincent Dumoulin"
 __email__ = "dumouliv@iro"
 
 
+import gc
 import os.path
 import functools
 import numpy
@@ -69,6 +70,16 @@ class TIMIT(Dataset):
 
         # Load data from disk
         self._load_data(which_set)
+        # Compute mean and standard deviation
+        all_sequences = numpy.hstack([sequence for sequence in self.raw_wav])
+        self.mean = numpy.mean(sequence)
+        self.std = numpy.std(sequence)
+        # Get rid of (now) useless concatenation of sequences
+        del all_sequences
+        gc.collect()
+        # Standardize data
+        for i, sequence in enumerate(self.raw_wav):
+            self.raw_wav[i] = (sequence - self.mean) / self.std
 
         # Slice data
         if stop is not None:
