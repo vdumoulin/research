@@ -227,7 +227,8 @@ class TIMIT(Dataset):
             phones_source = 'phones'
             phones_dtype = self.phones_sequences[0].dtype
             phones_map_fn = lambda indexes: [
-                self.phones_sequences[index[0]][index[1]]
+                self.phones_sequences[index[0]][index[1] +
+                                                self.frames_per_example]
                 for index in examples_map[indexes]
             ]
 
@@ -235,7 +236,8 @@ class TIMIT(Dataset):
             phonemes_source = 'phonemes'
             phonemes_dtype = self.phonemes_sequences[0].dtype
             phonemes_map_fn = lambda indexes: [
-                self.phonemes_sequences[index[0]][index[1]]
+                self.phonemes_sequences[index[0]][index[1] + 
+                                                  self.frames_per_example]
                 for index in examples_map[indexes]
             ]
 
@@ -243,7 +245,8 @@ class TIMIT(Dataset):
             words_source = 'words'
             words_dtype = self.words_sequences[0].dtype
             words_map_fn = lambda indexes: [
-                self.words_sequences[index[0]][index[1]]
+                self.words_sequences[index[0]][index[1] + 
+                                               self.frames_per_example]
                 for index in examples_map[indexes]
             ]
 
