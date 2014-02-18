@@ -70,11 +70,7 @@ class TIMIT(Dataset):
             self.sequences_to_phonemes = self.sequences_to_phonemes[start:]
             self.sequences_to_words = self.sequences_to_words[start:]
 
-        features_map = []
-        targets_map = []
-        phones_map = []
-        phonemes_map = []
-        words_map = []
+        examples_map = []
 
         phones_sequence_list = []
         phonemes_sequence_list = []
@@ -164,25 +160,16 @@ class TIMIT(Dataset):
             num_frames = samples_segmented_sequence.shape[0]
             num_examples = num_frames - self.frames_per_example
             for example_id in xrange(num_examples):
-                features_map.append([sequence_id, example_id,
-                                     example_id + self.frames_per_example])
-                targets_map.append([sequence_id,
-                                    example_id + self.frames_per_example])
-                phones_map.append([sequence_id, example_id])
-                phonemes_map.append([sequence_id, example_id])
-                words_map.append([sequence_id, example_id])
+                examples_map.append([sequence_id, example_id])
 
         self.samples_sequences = self.raw_wav
         self.phones_sequences = numpy.array(phones_sequence_list)
         self.phonemes_sequences = numpy.array(phonemes_sequence_list)
         self.words_sequences = numpy.array(words_sequence_list)
 
-        features_map = numpy.asarray(features_map)
-        targets_map = numpy.asarray(targets_map)
-        phones_map = numpy.asarray(phones_map)
-        words_map = numpy.asarray(words_map)
+        examples_map = numpy.asarray(examples_map)
 
-        self.num_examples = features_map.shape[0]
+        self.num_examples = examples_map.shape[0]
 
         # DataSpecs
         features_space = VectorSpace(
@@ -191,8 +178,9 @@ class TIMIT(Dataset):
         features_source = 'features'
         features_dtype = self.samples_sequences[0].dtype
         features_map_fn = lambda indexes: [
-            self.samples_sequences[index[0]][index[1]:index[2]].ravel()
-            for index in features_map[indexes]
+            self.samples_sequences[index[0]][index[1]:index[1] +
+                                             self.frames_per_example].ravel()
+            for index in examples_map[indexes]
         ]
 
         targets_space = VectorSpace(dim=self.frame_length)
@@ -200,7 +188,7 @@ class TIMIT(Dataset):
         targets_dtype = self.samples_sequences[0].dtype
         targets_map_fn = lambda indexes: [
             self.samples_sequences[index[0]][index[1]]
-            for index in targets_map[indexes]
+            for index in examples_map[indexes]
         ]
 
         phones_space = VectorSpace(dim=1)
@@ -208,7 +196,7 @@ class TIMIT(Dataset):
         phones_dtype = self.phones_sequences[0].dtype
         phones_map_fn = lambda indexes: [
             self.phones_sequences[index[0]][index[1]]
-            for index in phones_map[indexes]
+            for index in examples_map[indexes]
         ]
 
         phonemes_space = VectorSpace(dim=1)
@@ -216,7 +204,7 @@ class TIMIT(Dataset):
         phonemes_dtype = self.phonemes_sequences[0].dtype
         phonemes_map_fn = lambda indexes: [
             self.phonemes_sequences[index[0]][index[1]]
-            for index in phones_map[indexes]
+            for index in examples_map[indexes]
         ]
 
         words_space = VectorSpace(dim=1)
@@ -224,7 +212,7 @@ class TIMIT(Dataset):
         words_dtype = self.words_sequences[0].dtype
         words_map_fn = lambda indexes: [
             self.words_sequences[index[0]][index[1]]
-            for index in words_map[indexes]
+            for index in examples_map[indexes]
         ]
 
         space = CompositeSpace((features_space, targets_space, phones_space,
