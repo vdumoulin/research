@@ -220,6 +220,7 @@ class TIMIT(Dataset):
         source_components = [features_source, targets_source]
         dtypes_components = [features_dtype, targets_dtype]
         map_fn_components = [features_map_fn, targets_map_fn]
+        batch_components = [None, None]
 
         if not self.audio_only:
             phones_space = VectorSpace(dim=1)
@@ -254,12 +255,14 @@ class TIMIT(Dataset):
                                      words_dtype])
             map_fn_components.extend([phones_map_fn, phonemes_map_fn,
                                      words_map_fn])
+            batch_components.extend([None, None, None])
 
         space = CompositeSpace(space_components)
         source = tuple(source_components)
         self.data_specs = (space, source)
         self.dtypes = tuple(dtypes_components)
         self.map_functions = tuple(map_fn_components)
+        self.batch_buffers = batch_components
 
         # Defaults for iterators
         self._iter_mode = resolve_iterator_class('shuffled_sequential')
@@ -373,12 +376,18 @@ class TIMIT(Dataset):
             WRITEME
         """
         self._validate_source(source)
-        return tuple(
-            numpy.asarray(
-                self.map_functions[self.data_specs[1].index(so)](indexes)
-            )
-            for so in source
-        )
+        rval = []
+        for so in source:
+            batch = self.map_functions[self.data_specs[1].index(so)](indexes)
+            batch_buffer = self.batch_buffers[self.data_specs[1].index(so)]
+            dim = self.data_specs[0].components[self.data_specs[1].index(so)].dim
+            if batch_buffer is None or batch_buffer.shape != (len(batch), dim):
+                batch_buffer = numpy.zeros((len(batch), dim),
+                                           dtype=batch[0].dtype)
+            for i, example in enumerate(batch):
+                batch_buffer[i] = example
+            rval.append(batch_buffer)
+        return tuple(rval)
 
     @functools.wraps(Dataset.iterator)
     def iterator(self, mode=None, batch_size=None, num_batches=None,
@@ -434,7 +443,7 @@ if __name__ == "__main__":
     # train_timit = TIMIT("train", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     valid_timit = TIMIT("valid", frame_length=240, overlap=10,
-                        frames_per_example=5, audio_only=True)
+                        frames_per_example=1, stop=5, audio_only=True)
     # test_timit = TIMIT("test", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     it = valid_timit.iterator(mode='shuffled_sequential', batch_size=256)
