@@ -446,9 +446,10 @@ if __name__ == "__main__":
     # train_timit = TIMIT("train", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     valid_timit = TIMIT("valid", frame_length=240, overlap=10,
-                        frames_per_example=1, stop=5, audio_only=True)
+                        frames_per_example=1, audio_only=False)
     # test_timit = TIMIT("test", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     it = valid_timit.iterator(mode='shuffled_sequential', batch_size=256)
+    import pdb; pdb.set_trace()
     for (f, t) in it:
         print f.shape
