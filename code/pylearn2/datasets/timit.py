@@ -272,7 +272,7 @@ class TIMIT(Dataset):
         phonemes_path = os.path.join(timit_base_path,
                                      which_set + "_redux_phn.npy")
         phones_path = os.path.join(timit_base_path,
-                                     which_set + "_phn.npy")
+                                   which_set + "_phn.npy")
         sequences_to_phonemes_path = os.path.join(timit_base_path,
                                                   which_set +
                                                   "_seq_to_phn.npy")
@@ -405,7 +405,15 @@ class TIMIT(Dataset):
 
 
 if __name__ == "__main__":
-    timit = TIMIT("valid", frame_length=240, overlap=10, frames_per_example=5)
-    it = timit.iterator(mode='shuffled_sequential', batch_size=2000)
+    timit_train = TIMIT("train", frame_length=240, overlap=10,
+                        frames_per_example=5)
+    print "Loaded training set..."
+    timit_valid = TIMIT("valid", frame_length=240, overlap=10,
+                        frames_per_example=5)
+    print "Loaded validation set..."
+    timit_test = TIMIT("test", frame_length=240, overlap=10,
+                        frames_per_example=5)
+    print "Loaded test set..."
+    it = timit_valid.iterator(mode='shuffled_sequential', batch_size=2000)
     for (f, t) in it:
         print f.shape
