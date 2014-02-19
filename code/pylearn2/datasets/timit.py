@@ -96,6 +96,7 @@ class TIMIT(Dataset):
                 self.sequences_to_words = self.sequences_to_words[start:]
 
         examples_map = []
+        examples_per_sequence = []
 
         if not self.audio_only:
             phones_sequence_list = []
@@ -185,10 +186,12 @@ class TIMIT(Dataset):
             # Generate features/targets/phones/phonemes/words map
             num_frames = samples_segmented_sequence.shape[0]
             num_examples = num_frames - self.frames_per_example
+            examples_per_sequence.append(num_examples)
             for example_id in xrange(num_examples):
                 if numpy.random.rand() <= self.proportion:
                     examples_map.append([sequence_id, example_id])
 
+        self.blabla = numpy.cumsum(examples_per_sequence)
         self.samples_sequences = self.raw_wav
         if not self.audio_only:
             self.phones_sequences = numpy.array(phones_sequence_list)
