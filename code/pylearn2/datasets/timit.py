@@ -95,8 +95,7 @@ class TIMIT(Dataset):
                 self.sequences_to_phonemes = self.sequences_to_phonemes[start:]
                 self.sequences_to_words = self.sequences_to_words[start:]
 
-        examples_map = []
-        examples_per_sequence = []
+        examples_per_sequence = [0]
 
         if not self.audio_only:
             phones_sequence_list = []
@@ -183,24 +182,21 @@ class TIMIT(Dataset):
                                                       overlap)
             self.raw_wav[sequence_id] = samples_segmented_sequence
 
+            # TODO: change me
             # Generate features/targets/phones/phonemes/words map
             num_frames = samples_segmented_sequence.shape[0]
             num_examples = num_frames - self.frames_per_example
             examples_per_sequence.append(num_examples)
-            for example_id in xrange(num_examples):
-                if numpy.random.rand() <= self.proportion:
-                    examples_map.append([sequence_id, example_id])
 
-        self.blabla = numpy.cumsum(examples_per_sequence)
+        self.cumulative_example_indexes = numpy.cumsum(examples_per_sequence)
         self.samples_sequences = self.raw_wav
+
         if not self.audio_only:
             self.phones_sequences = numpy.array(phones_sequence_list)
             self.phonemes_sequences = numpy.array(phonemes_sequence_list)
             self.words_sequences = numpy.array(words_sequence_list)
 
-        examples_map = numpy.asarray(examples_map)
-
-        self.num_examples = examples_map.shape[0]
+        self.num_examples = self.cumulative_example_indexes[-1]
 
         # DataSpecs
         features_space = VectorSpace(
@@ -208,19 +204,22 @@ class TIMIT(Dataset):
         )
         features_source = 'features'
         features_dtype = self.samples_sequences[0].dtype
-        features_map_fn = lambda indexes: [
-            self.samples_sequences[index[0]][index[1]:index[1] +
-                                             self.frames_per_example].ravel()
-            for index in examples_map[indexes]
-        ]
+        def features_map_fn(indexes):
+            rval = []
+            for sequence_index, example_index in self._fetch_index(indexes):
+                rval.append(self.samples_sequences[sequence_index][example_index:example_index
+                    + self.frames_per_example].ravel())
+            return rval
 
         targets_space = VectorSpace(dim=self.frame_length)
         targets_source = 'targets'
         targets_dtype = self.samples_sequences[0].dtype
-        targets_map_fn = lambda indexes: [
-            self.samples_sequences[index[0]][index[1]+self.frames_per_example]
-            for index in examples_map[indexes]
-        ]
+        def targets_map_fn(indexes):
+            rval = []
+            for sequence_index, example_index in self._fetch_index(indexes):
+                rval.append(self.samples_sequences[sequence_index][example_index
+                    + self.frames_per_example].ravel())
+            return rval
 
         space_components = [features_space, targets_space]
         source_components = [features_source, targets_source]
@@ -232,29 +231,32 @@ class TIMIT(Dataset):
             phones_space = VectorSpace(dim=1)
             phones_source = 'phones'
             phones_dtype = self.phones_sequences[0].dtype
-            phones_map_fn = lambda indexes: [
-                self.phones_sequences[index[0]][index[1] +
-                                                self.frames_per_example]
-                for index in examples_map[indexes]
-            ]
+            def phones_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    rval.append(self.phones_sequences[sequence_index][example_index
+                        + self.frames_per_example].ravel())
+                return rval
 
             phonemes_space = VectorSpace(dim=1)
             phonemes_source = 'phonemes'
             phonemes_dtype = self.phonemes_sequences[0].dtype
-            phonemes_map_fn = lambda indexes: [
-                self.phonemes_sequences[index[0]][index[1] + 
-                                                  self.frames_per_example]
-                for index in examples_map[indexes]
-            ]
+            def phonemes_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    rval.append(self.phonemes_sequences[sequence_index][example_index
+                        + self.frames_per_example].ravel())
+                return rval
 
             words_space = VectorSpace(dim=1)
             words_source = 'words'
             words_dtype = self.words_sequences[0].dtype
-            words_map_fn = lambda indexes: [
-                self.words_sequences[index[0]][index[1] + 
-                                               self.frames_per_example]
-                for index in examples_map[indexes]
-            ]
+            def words_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    rval.append(self.words_sequences[sequence_index][example_index
+                        + self.frames_per_example].ravel())
+                return rval
 
             space_components.extend([phones_space, phonemes_space,
                                      words_space])
@@ -278,6 +280,12 @@ class TIMIT(Dataset):
         self._iter_data_specs = (CompositeSpace((features_space,
                                                  targets_space)),
                                  (features_source, targets_source))
+
+
+    def _fetch_index(self, indexes):
+        digit = numpy.digitize(indexes, self.cumulative_example_indexes) - 1
+        return zip(digit,
+                   numpy.array(indexes) - self.cumulative_example_indexes[digit])
 
     def _load_data(self, which_set):
         """
@@ -384,6 +392,8 @@ class TIMIT(Dataset):
 
             WRITEME
         """
+        if type(indexes) is slice:
+            indexes = numpy.arange(indexes.start, indexes.stop)
         self._validate_source(source)
         rval = []
         for so in source:
@@ -451,11 +461,11 @@ class TIMIT(Dataset):
 if __name__ == "__main__":
     # train_timit = TIMIT("train", frame_length=240, overlap=10,
     #                     frames_per_example=5)
-    valid_timit = TIMIT("valid", frame_length=240, overlap=10,
-                        frames_per_example=1, audio_only=False)
+    valid_timit = TIMIT("valid", frame_length=1, overlap=0,
+                        frames_per_example=100, audio_only=True)
     # test_timit = TIMIT("test", frame_length=240, overlap=10,
     #                     frames_per_example=5)
-    it = valid_timit.iterator(mode='shuffled_sequential', batch_size=256)
-    import pdb; pdb.set_trace()
+    it = valid_timit.iterator(mode='random_uniform', num_batches=100, batch_size=256)
+    # import pdb; pdb.set_trace()
     for (f, t) in it:
         print f.shape
