@@ -28,10 +28,15 @@ class TIMIT(Dataset):
     Frame-based TIMIT dataset
     """
     _default_seed = (17, 2, 946)
+    
+    # Mean and standard deviation of the acoustic samples from the whole
+    # dataset (train, valid, test).
+    _mean = 0.0035805809921434142
+    _std = 542.48824133746177
 
     def __init__(self, which_set, frame_length, overlap=0,
                  frames_per_example=1, start=0, stop=None, audio_only=False,
-                 rng=_default_seed):
+                 proportion=1.0, rng=_default_seed):
         """
         Parameters
         ----------
@@ -52,6 +57,9 @@ class TIMIT(Dataset):
         audio_only : bool, optional
             Whether to load only the raw audio and no auxiliary information.
             Defaults to `False`.
+        proportion : real, optional
+            Proportion of all the possible examples to be included in the
+            dataset. The examples are chosen at random.
         rng : object, optional
             A random number generator used for picking random indices into the
             design matrix when choosing minibatches.
@@ -61,6 +69,7 @@ class TIMIT(Dataset):
         self.frames_per_example = frames_per_example
         self.offset = self.frame_length - self.overlap
         self.audio_only = audio_only
+        self.proportion = proportion
 
         # RNG initialization
         if hasattr(rng, 'random_integers'):
@@ -70,16 +79,9 @@ class TIMIT(Dataset):
 
         # Load data from disk
         self._load_data(which_set)
-        # Compute mean and standard deviation
-        all_sequences = numpy.hstack([sequence for sequence in self.raw_wav])
-        self.mean = numpy.mean(sequence)
-        self.std = numpy.std(sequence)
-        # Get rid of (now) useless concatenation of sequences
-        del all_sequences
-        gc.collect()
         # Standardize data
         for i, sequence in enumerate(self.raw_wav):
-            self.raw_wav[i] = (sequence - self.mean) / self.std
+            self.raw_wav[i] = (sequence - TIMIT._mean) / TIMIT._std
 
         # Slice data
         if stop is not None:
@@ -184,7 +186,8 @@ class TIMIT(Dataset):
             num_frames = samples_segmented_sequence.shape[0]
             num_examples = num_frames - self.frames_per_example
             for example_id in xrange(num_examples):
-                examples_map.append([sequence_id, example_id])
+                if numpy.random.rand() <= self.proportion:
+                    examples_map.append([sequence_id, example_id])
 
         self.samples_sequences = self.raw_wav
         if not self.audio_only:
@@ -212,7 +215,7 @@ class TIMIT(Dataset):
         targets_source = 'targets'
         targets_dtype = self.samples_sequences[0].dtype
         targets_map_fn = lambda indexes: [
-            self.samples_sequences[index[0]][index[1]]
+            self.samples_sequences[index[0]][index[1]+self.frames_per_example]
             for index in examples_map[indexes]
         ]
 
@@ -227,7 +230,8 @@ class TIMIT(Dataset):
             phones_source = 'phones'
             phones_dtype = self.phones_sequences[0].dtype
             phones_map_fn = lambda indexes: [
-                self.phones_sequences[index[0]][index[1]]
+                self.phones_sequences[index[0]][index[1] +
+                                                self.frames_per_example]
                 for index in examples_map[indexes]
             ]
 
@@ -235,7 +239,8 @@ class TIMIT(Dataset):
             phonemes_source = 'phonemes'
             phonemes_dtype = self.phonemes_sequences[0].dtype
             phonemes_map_fn = lambda indexes: [
-                self.phonemes_sequences[index[0]][index[1]]
+                self.phonemes_sequences[index[0]][index[1] + 
+                                                  self.frames_per_example]
                 for index in examples_map[indexes]
             ]
 
@@ -243,7 +248,8 @@ class TIMIT(Dataset):
             words_source = 'words'
             words_dtype = self.words_sequences[0].dtype
             words_map_fn = lambda indexes: [
-                self.words_sequences[index[0]][index[1]]
+                self.words_sequences[index[0]][index[1] + 
+                                               self.frames_per_example]
                 for index in examples_map[indexes]
             ]
 
@@ -443,9 +449,10 @@ if __name__ == "__main__":
     # train_timit = TIMIT("train", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     valid_timit = TIMIT("valid", frame_length=240, overlap=10,
-                        frames_per_example=1, stop=5, audio_only=True)
+                        frames_per_example=1, audio_only=False)
     # test_timit = TIMIT("test", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     it = valid_timit.iterator(mode='shuffled_sequential', batch_size=256)
+    import pdb; pdb.set_trace()
     for (f, t) in it:
         print f.shape
