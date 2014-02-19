@@ -4,8 +4,8 @@
         frame_length: 240,
         overlap: 20,
         frames_per_example: 3,
-        start: 0,
-        stop: 100,
+        # start: 0,
+        # stop: 100,
     },
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 512,
