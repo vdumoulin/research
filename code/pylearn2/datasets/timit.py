@@ -81,7 +81,7 @@ class TIMIT(Dataset):
         self._load_data(which_set)
         # Standardize data
         for i, sequence in enumerate(self.raw_wav):
-            self.raw_wav[i] = (sequence - _mean) / _std
+            self.raw_wav[i] = (sequence - TIMIT._mean) / TIMIT._std
 
         # Slice data
         if stop is not None:
