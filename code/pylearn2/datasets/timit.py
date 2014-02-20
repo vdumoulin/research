@@ -36,7 +36,7 @@ class TIMIT(Dataset):
 
     def __init__(self, which_set, frame_length, overlap=0,
                  frames_per_example=1, start=0, stop=None, audio_only=False,
-                 proportion=1.0, rng=_default_seed):
+                 rng=_default_seed):
         """
         Parameters
         ----------
@@ -57,9 +57,6 @@ class TIMIT(Dataset):
         audio_only : bool, optional
             Whether to load only the raw audio and no auxiliary information.
             Defaults to `False`.
-        proportion : real, optional
-            Proportion of all the possible examples to be included in the
-            dataset. The examples are chosen at random.
         rng : object, optional
             A random number generator used for picking random indices into the
             design matrix when choosing minibatches.
@@ -69,7 +66,6 @@ class TIMIT(Dataset):
         self.frames_per_example = frames_per_example
         self.offset = self.frame_length - self.overlap
         self.audio_only = audio_only
-        self.proportion = proportion
 
         # RNG initialization
         if hasattr(rng, 'random_integers'):
