@@ -156,9 +156,10 @@ class TIMIT(Dataset):
 
         self.cumulative_example_indexes = numpy.cumsum(examples_per_sequence)
         self.samples_sequences = self.raw_wav
-        self.phones_sequences = self.phones
-        self.phonemes_sequences = self.phonemes
-        self.words_sequences = self.words
+        if not self.audio_only:
+            self.phones_sequences = self.phones
+            self.phonemes_sequences = self.phonemes
+            self.words_sequences = self.words
         self.num_examples = self.cumulative_example_indexes[-1]
 
         # DataSpecs
