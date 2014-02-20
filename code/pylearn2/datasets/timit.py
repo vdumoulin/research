@@ -15,7 +15,7 @@ import functools
 import numpy
 from pylearn2.utils.iteration import resolve_iterator_class
 from pylearn2.datasets.dataset import Dataset
-from pylearn2.space import CompositeSpace, VectorSpace
+from pylearn2.space import CompositeSpace, VectorSpace, IndexSpace
 from pylearn2.utils import serial
 from pylearn2.utils import safe_zip
 from research.code.scripts.segmentaxis import segment_axis
@@ -195,7 +195,7 @@ class TIMIT(Dataset):
         batch_components = [None, None]
 
         if not self.audio_only:
-            phones_space = VectorSpace(dim=1)
+            phones_space = IndexSpace(max_labels=31, dim=1)
             phones_source = 'phones'
             phones_dtype = self.phones_sequences[0].dtype
             def phones_map_fn(indexes):
@@ -205,7 +205,7 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
-            phonemes_space = VectorSpace(dim=1)
+            phonemes_space = IndexSpace(max_labels=31, dim=1)
             phonemes_source = 'phonemes'
             phonemes_dtype = self.phonemes_sequences[0].dtype
             def phonemes_map_fn(indexes):
@@ -215,7 +215,7 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
-            words_space = VectorSpace(dim=1)
+            words_space = IndexSpace(max_labels=31, dim=1)
             words_source = 'words'
             words_dtype = self.words_sequences[0].dtype
             def words_map_fn(indexes):
