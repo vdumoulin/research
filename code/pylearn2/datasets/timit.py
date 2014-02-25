@@ -192,7 +192,9 @@ class TIMIT(Dataset):
         batch_components = [None, None]
 
         if not self.audio_only:
-            phones_space = IndexSpace(max_labels=31, dim=1)
+            num_phones = numpy.max([numpy.max(sequence) for sequence
+                                    in self.phones]) + 1
+            phones_space = IndexSpace(max_labels=num_phones, dim=1)
             phones_source = 'phones'
             phones_dtype = self.phones_sequences[0].dtype
             def phones_map_fn(indexes):
@@ -202,7 +204,9 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
-            phonemes_space = IndexSpace(max_labels=31, dim=1)
+            num_phonemes = numpy.max([numpy.max(sequence) for sequence
+                                      in self.phonemes]) + 1
+            phonemes_space = IndexSpace(max_labels=num_phonemes, dim=1)
             phonemes_source = 'phonemes'
             phonemes_dtype = self.phonemes_sequences[0].dtype
             def phonemes_map_fn(indexes):
@@ -212,7 +216,9 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
-            words_space = IndexSpace(max_labels=31, dim=1)
+            num_words = numpy.max([numpy.max(sequence) for sequence
+                                   in self.words]) + 1
+            words_space = IndexSpace(max_labels=num_words, dim=1)
             words_source = 'words'
             words_dtype = self.words_sequences[0].dtype
             def words_map_fn(indexes):
@@ -423,7 +429,9 @@ if __name__ == "__main__":
     # test_timit = TIMIT("test", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     # import pdb; pdb.set_trace()
-    it = valid_timit.iterator(mode='random_uniform', num_batches=100, batch_size=256)
-    import pdb; pdb.set_trace()
+    data_specs = (VectorSpace(dim=62), 'phones')
+    it = valid_timit.iterator(mode='random_uniform', data_specs=data_specs,
+                              num_batches=100, batch_size=256)
+    # import pdb; pdb.set_trace()
     for (f, t) in it:
         print f.shape
