@@ -57,29 +57,19 @@ class FiniteDatasetIterator(object):
             assert len(convert) == len(source)
             self._convert = convert
 
-        dtypes = self._dataset.dtype_of(self._source)
-        for i, (so, sp, dt) in enumerate(safe_zip(source, sub_spaces, dtypes)):
+        for i, (so, sp) in enumerate(safe_zip(source, sub_spaces)):
             idx = dataset_source.index(so)
             dspace = dataset_sub_spaces[idx]
 
             init_fn = self._convert[i]
             fn = init_fn
-            # Compose the functions
-            needs_cast = not (numpy.dtype(config.floatX) == dt)
-            if needs_cast:
-                if fn is None:
-                    fn = lambda batch: numpy.cast[config.floatX](batch)
-                else:
-                    fn = (lambda batch, fn_=fn:
-                          numpy.cast[config.floatX](fn_(batch)))
 
             # If there is an init_fn, it is supposed to take
             # care of the formatting, and it should be an error
             # if it does not. If there was no init_fn, then
             # the iterator will try to format using the generic
             # space-formatting functions.
-            needs_format = not init_fn and not sp == dspace
-            if needs_format:
+            if init_fn is None:
                 # "dspace" and "sp" have to be passed as parameters
                 # to lambda, in order to capture their current value,
                 # otherwise they would change in the next iteration

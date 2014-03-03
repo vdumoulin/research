@@ -167,7 +167,6 @@ class TIMIT(Dataset):
             dim=self.frame_length * self.frames_per_example
         )
         features_source = 'features'
-        features_dtype = self.samples_sequences[0].dtype
         def features_map_fn(indexes):
             rval = []
             for sequence_index, example_index in self._fetch_index(indexes):
@@ -177,7 +176,6 @@ class TIMIT(Dataset):
 
         targets_space = VectorSpace(dim=self.frame_length)
         targets_source = 'targets'
-        targets_dtype = self.samples_sequences[0].dtype
         def targets_map_fn(indexes):
             rval = []
             for sequence_index, example_index in self._fetch_index(indexes):
@@ -187,16 +185,15 @@ class TIMIT(Dataset):
 
         space_components = [features_space, targets_space]
         source_components = [features_source, targets_source]
-        dtypes_components = [features_dtype, targets_dtype]
         map_fn_components = [features_map_fn, targets_map_fn]
         batch_components = [None, None]
 
         if not self.audio_only:
             num_phones = numpy.max([numpy.max(sequence) for sequence
                                     in self.phones]) + 1
-            phones_space = IndexSpace(max_labels=num_phones, dim=1)
+            phones_space = IndexSpace(max_labels=num_phones, dim=1,
+                                      dtype=str(self.phones_sequences[0].dtype))
             phones_source = 'phones'
-            phones_dtype = self.phones_sequences[0].dtype
             def phones_map_fn(indexes):
                 rval = []
                 for sequence_index, example_index in self._fetch_index(indexes):
@@ -206,9 +203,9 @@ class TIMIT(Dataset):
 
             num_phonemes = numpy.max([numpy.max(sequence) for sequence
                                       in self.phonemes]) + 1
-            phonemes_space = IndexSpace(max_labels=num_phonemes, dim=1)
+            phonemes_space = IndexSpace(max_labels=num_phonemes, dim=1,
+                                        dtype=str(self.phonemes_sequences[0].dtype))
             phonemes_source = 'phonemes'
-            phonemes_dtype = self.phonemes_sequences[0].dtype
             def phonemes_map_fn(indexes):
                 rval = []
                 for sequence_index, example_index in self._fetch_index(indexes):
@@ -218,9 +215,9 @@ class TIMIT(Dataset):
 
             num_words = numpy.max([numpy.max(sequence) for sequence
                                    in self.words]) + 1
-            words_space = IndexSpace(max_labels=num_words, dim=1)
+            words_space = IndexSpace(max_labels=num_words, dim=1,
+                                     dtype=str(self.words_sequences[0].dtype))
             words_source = 'words'
-            words_dtype = self.words_sequences[0].dtype
             def words_map_fn(indexes):
                 rval = []
                 for sequence_index, example_index in self._fetch_index(indexes):
@@ -232,8 +229,6 @@ class TIMIT(Dataset):
                                      words_space])
             source_components.extend([phones_source, phonemes_source,
                                      words_source])
-            dtypes_components.extend([phones_dtype, phonemes_dtype,
-                                     words_dtype])
             map_fn_components.extend([phones_map_fn, phonemes_map_fn,
                                      words_map_fn])
             batch_components.extend([None, None, None])
@@ -241,7 +236,6 @@ class TIMIT(Dataset):
         space = CompositeSpace(space_components)
         source = tuple(source_components)
         self.data_specs = (space, source)
-        self.dtypes = tuple(dtypes_components)
         self.map_functions = tuple(map_fn_components)
         self.batch_buffers = batch_components
 
@@ -250,7 +244,6 @@ class TIMIT(Dataset):
         self._iter_data_specs = (CompositeSpace((features_space,
                                                  targets_space)),
                                  (features_source, targets_source))
-
 
     def _fetch_index(self, indexes):
         digit = numpy.digitize(indexes, self.cumulative_example_indexes) - 1
@@ -326,14 +319,6 @@ class TIMIT(Dataset):
             except ValueError:
                 raise ValueError("the requested source named '" + s + "' " +
                                  "is not provided by the dataset")
-
-    def dtype_of(self, source):
-        """
-        Returns the dtype of the requested source
-        """
-        self._validate_source(source)
-        return tuple(self.dtypes[self.data_specs[1].index(so)]
-                     for so in source)
 
     def get_data_specs(self):
         """
@@ -429,9 +414,8 @@ if __name__ == "__main__":
     # test_timit = TIMIT("test", frame_length=240, overlap=10,
     #                     frames_per_example=5)
     # import pdb; pdb.set_trace()
-    data_specs = (VectorSpace(dim=62), 'phones')
+    data_specs = (IndexSpace(max_labels=62, dim=1, dtype='int16'),
+                  'phones')
     it = valid_timit.iterator(mode='random_uniform', data_specs=data_specs,
                               num_batches=100, batch_size=256)
-    # import pdb; pdb.set_trace()
-    for (f, t) in it:
-        print f.shape
+    it.next()
