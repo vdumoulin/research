@@ -1,25 +1,26 @@
 !obj:pylearn2.train.Train {
     dataset: &train !obj:research.code.pylearn2.datasets.timit.TIMIT {
-        which_set: 'train',
-        frame_length: 240,
-        overlap: 20,
-        frames_per_example: 3,
-        # start: 0,
-        # stop: 100,
+        which_set: 'valid',
+        frame_length: &fl 1,
+        overlap: 0,
+        stop: 20,
+        frames_per_example: &fpe 100,
+        audio_only: 1,
     },
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 512,
         layers: [
-             !obj:pylearn2.models.mlp.Sigmoid {
-                 dim: 240,
+             !obj:pylearn2.models.mlp.Linear {
+                 dim: *fl,
                  layer_name: 'h1',
                  irange: 0.05,
              },
         ],
-        nvis: 720,
+        nvis: *fpe,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        learning_rate: .05,
+        learning_rate: .1e-5,
+        monitoring_batches: 10,
         monitoring_dataset: {
             'train' : *train,
         },
