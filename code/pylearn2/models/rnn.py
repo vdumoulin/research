@@ -5,7 +5,9 @@ import numpy
 import theano
 import theano.tensor as T
 from pylearn2.models.model import Model
-from pylearn2.space import VectorSequenceSpace, CompositeSpace
+from pylearn2.space import CompositeSpace
+from research.code.pylearn2.space import VectorSequenceSpace
+from research.code.pylearn2.datasets.timit import TIMITSequences
 from pylearn2.utils import sharedX
 from pylearn2.costs.cost import Cost, DefaultDataSpecsMixin
 
@@ -106,3 +108,28 @@ class RNNCost(DefaultDataSpecsMixin, Cost):
         inputs, targets = data
         predictions = model.fprop(inputs)
         return T.mean(T.sqr(targets - predictions))
+
+
+if __name__ == "__main__":
+    model = ToyRNN(nvis=100, nhid=100)
+    cost = RNNCost()
+
+    features = T.matrix('features')
+    phones = T.matrix('phones')
+    targets = T.matrix('targets')
+
+    cost_expression = cost.expr(model, ((features, phones), targets))
+
+    fn = theano.function(inputs=[features, phones, targets],
+                         outputs=cost_expression)
+
+    valid_timit = TIMITSequences("valid", frame_length=100, audio_only=False)
+    data_specs = (CompositeSpace([VectorSequenceSpace(window_dim=100),
+                                  VectorSequenceSpace(window_dim=1),
+                                  VectorSequenceSpace(window_dim=62)]),
+                  ('features', 'targets', 'phones'))
+    it = valid_timit.iterator(mode='sequential', data_specs=data_specs,
+                              num_batches=10, batch_size=1)
+    for f, p, t in it:
+        print f.shape, p.shape, t.shape
+        print fn(f, p, t)
