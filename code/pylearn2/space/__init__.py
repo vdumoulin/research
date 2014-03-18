@@ -42,17 +42,18 @@ class VectorSequenceSpace(SimplyTypedSpace):
         """
         Return a string representation.
         """
-        return ('%(classname)s(dim=%(dim)s, max_labels=%(max_labels)s, '
-                'dtype=%(dtype)s)') % dict(classname=self.__class__.__name__,
-                                           dim=self.dim,
-                                           max_labels=self.max_labels,
-                                           dtype=self.dtype)
+        return ('%(classname)s(window_dim=%(window_dim)s, '
+                'max_labels=%(max_labels)s, dtype=%(dtype)s)' %
+                dict(classname=self.__class__.__name__,
+                     window_dim=self.window_dim,
+                     max_labels=self.max_labels,
+                     dtype=self.dtype))
 
     @wraps(Space.__eq__)
     def __eq__(self, other):
         return (type(self) == type(other) and
                 self.max_labels == other.max_labels and
-                self.dim == other.dim and
+                self.window_dim == other.window_dim and
                 self.dtype == other.dtype)
 
     @wraps(Space._check_sizes)
@@ -195,9 +196,9 @@ class IndexSequenceSpace(SimplyTypedSpace):
                                  "window_dim %d. Expected either "
                                  "window_dim=%d (merged one-hots) or %d "
                                  "(concatenated one-hots)" %
-                                 (space.dim,
+                                 (space.window_dim,
                                   self.max_labels,
-                                  self.dim * self.max_labels))
+                                  self.window_dim * self.max_labels))
         elif isinstance(space, IndexSequenceSpace):
             if space.window_dim != self.window_dim or space.max_labels != self.max_labels:
                 raise ValueError("Can't convert to IndexSequenceSpace of "
