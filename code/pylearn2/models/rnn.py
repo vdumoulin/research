@@ -58,6 +58,7 @@ class ToyRNN(Model):
 
         init_h = T.alloc(numpy.cast[theano.config.floatX](0), self.nhid)
         init_out = T.alloc(numpy.cast[theano.config.floatX](0), 1)
+        init_out = T.unbroadcast(init_out, 0)
 
         def fprop_step(features, phones, h_tm1, out):
             h = T.nnet.sigmoid(T.dot(features, self.W) +
