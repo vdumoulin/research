@@ -82,6 +82,14 @@ class TIMIT(Dataset):
         for i, sequence in enumerate(self.raw_wav):
             self.raw_wav[i] = (sequence - TIMIT._mean) / TIMIT._std
 
+        if not self.audio_only:
+            self.num_phones = numpy.max([numpy.max(sequence) for sequence
+                                         in self.phones]) + 1
+            self.num_phonemes = numpy.max([numpy.max(sequence) for sequence
+                                           in self.phonemes]) + 1
+            self.num_words = numpy.max([numpy.max(sequence) for sequence
+                                        in self.words]) + 1
+
         # Slice data
         if stop is not None:
             self.raw_wav = self.raw_wav[start:stop]
@@ -192,9 +200,7 @@ class TIMIT(Dataset):
         batch_components = [None, None]
 
         if not self.audio_only:
-            num_phones = numpy.max([numpy.max(sequence) for sequence
-                                    in self.phones]) + 1
-            phones_space = IndexSpace(max_labels=num_phones, dim=1,
+            phones_space = IndexSpace(max_labels=self.num_phones, dim=1,
                                       dtype=str(self.phones_sequences[0].dtype))
             phones_source = 'phones'
             def phones_map_fn(indexes):
@@ -204,9 +210,7 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
-            num_phonemes = numpy.max([numpy.max(sequence) for sequence
-                                      in self.phonemes]) + 1
-            phonemes_space = IndexSpace(max_labels=num_phonemes, dim=1,
+            phonemes_space = IndexSpace(max_labels=self.num_phonemes, dim=1,
                                         dtype=str(self.phonemes_sequences[0].dtype))
             phonemes_source = 'phonemes'
             def phonemes_map_fn(indexes):
@@ -216,9 +220,7 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
-            num_words = numpy.max([numpy.max(sequence) for sequence
-                                   in self.words]) + 1
-            words_space = IndexSpace(max_labels=num_words, dim=1,
+            words_space = IndexSpace(max_labels=self.num_words, dim=1,
                                      dtype=str(self.words_sequences[0].dtype))
             words_source = 'words'
             def words_map_fn(indexes):
@@ -456,6 +458,14 @@ class TIMITSequences(Dataset):
         for i, sequence in enumerate(self.raw_wav):
             self.raw_wav[i] = (sequence - TIMIT._mean) / TIMIT._std
 
+        if not self.audio_only:
+            self.num_phones = numpy.max([numpy.max(sequence) for sequence
+                                         in self.phones]) + 1
+            self.num_phonemes = numpy.max([numpy.max(sequence) for sequence
+                                           in self.phonemes]) + 1
+            self.num_words = numpy.max([numpy.max(sequence) for sequence
+                                        in self.words]) + 1
+
         # Slice data
         if stop is not None:
             self.raw_wav = self.raw_wav[start:stop]
@@ -525,28 +535,22 @@ class TIMITSequences(Dataset):
         batch_components = [None, None]
 
         if not self.audio_only:
-            num_phones = numpy.max([numpy.max(sequence) for sequence
-                                    in self.phones_sequences]) + 1
             phones_space = IndexSequenceSpace(
-                max_labels=num_phones,
+                max_labels=self.num_phones,
                 window_dim=1,
                 dtype=str(self.phones_sequences[0].dtype)
             )
             phones_source = 'phones'
 
-            num_phonemes = numpy.max([numpy.max(sequence) for sequence
-                                      in self.phonemes_sequences]) + 1
             phonemes_space = IndexSequenceSpace(
-                max_labels=num_phonemes,
+                max_labels=self.num_phonemes,
                 window_dim=1,
                 dtype=str(self.phonemes_sequences[0].dtype)
             )
             phonemes_source = 'phonemes'
 
-            num_words = numpy.max([numpy.max(sequence) for sequence
-                                   in self.words_sequences]) + 1
             words_space = IndexSequenceSpace(
-                max_labels=num_words,
+                max_labels=self.num_words,
                 window_dim=1,
                 dtype=str(self.words_sequences[0].dtype)
             )
