@@ -13,39 +13,28 @@ from pylearn2.format.target_format import OneHotFormatter
 
 class VectorSequenceSpace(SimplyTypedSpace):
     """
-    A space representing a single sequence as a matrix whose first dimension
-    represents time and whose second dimension represents the window.
-
-    For now, VectorSequenceSpace cannot be converted to anything else.
+    A space representing a single, variable-length sequence of fixed-sized
+    vectors.
 
     Parameters
     ----------
-    max_labels : int
-        The number of possible classes/labels. This means that
-        all labels should be < max_labels. Example: For MNIST
-        there are 10 numbers and hence max_labels = 10.
     dim : int
-        The number of indices in one space e.g. for MNIST there is
-        one target label and hence dim = 1. If we have an n-gram
-        of word indices as input to a neurel net language model, dim = n.
+        Vector size
     dtype : str
         A numpy dtype string indicating this space's dtype.
-        Must be an integer type e.g. int32 or int64.
-    kwargs: passes on to superclass constructor
+    kwargs : passes on to superclass constructor
     """
-    def __init__(self, window_dim, dtype='floatX', **kwargs):
+    def __init__(self, dim, dtype='floatX', **kwargs):
         super(VectorSequenceSpace, self).__init__(dtype, **kwargs)
-
-        self.window_dim = window_dim
+        self.dim = dim
 
     def __str__(self):
         """
         Return a string representation.
         """
-        return ('%(classname)s(window_dim=%(window_dim)s, '
-                'max_labels=%(max_labels)s, dtype=%(dtype)s)' %
+        return ('%(classname)s(dim=%(dim)s, dtype=%(dtype)s)' %
                 dict(classname=self.__class__.__name__,
-                     window_dim=self.window_dim,
+                     dim=self.dim,
                      max_labels=self.max_labels,
                      dtype=self.dtype))
 
@@ -53,7 +42,7 @@ class VectorSequenceSpace(SimplyTypedSpace):
     def __eq__(self, other):
         return (type(self) == type(other) and
                 self.max_labels == other.max_labels and
-                self.window_dim == other.window_dim and
+                self.dim == other.dim and
                 self.dtype == other.dtype)
 
     @wraps(Space._check_sizes)
@@ -61,16 +50,16 @@ class VectorSequenceSpace(SimplyTypedSpace):
         if not isinstance(space, VectorSequenceSpace):
             raise ValueError("Can't convert to " + str(space.__class__))
         else:
-            if space.window_dim != self.window_dim:
+            if space.dim != self.dim:
                 raise ValueError("Can't convert to VectorSequenceSpace of "
-                                 "window_dim %d" %
-                                 (space.window_dim,))
+                                 "dim %d" %
+                                 (space.dim,))
 
     @wraps(Space._format_as_impl)
     def _format_as_impl(self, is_numeric, batch, space):
         if isinstance(space, VectorSequenceSpace):
-            if space.window_dim != self.window_dim:
-                raise ValueError("The two VectorSequenceSpaces' window_dim "
+            if space.dim != self.dim:
+                raise ValueError("The two VectorSequenceSpaces' dim "
                                  "values don't match. This should have been "
                                  "caught by "
                                  "VectorSequenceSpace._check_sizes().")
@@ -94,11 +83,6 @@ class VectorSequenceSpace(SimplyTypedSpace):
 
     @wraps(Space._validate_impl)
     def _validate_impl(self, is_numeric, batch):
-        """
-        .. todo::
-
-            WRITEME
-        """
         # checks that batch isn't a tuple, checks batch.type against self.dtype
         super(VectorSequenceSpace, self)._validate_impl(is_numeric, batch)
 
@@ -114,12 +98,12 @@ class VectorSequenceSpace(SimplyTypedSpace):
                 raise ValueError("The value of a VectorSequenceSpace batch "
                                  "must be 2D, got %d dimensions for %s."
                                  % (batch.ndim, batch))
-            if batch.shape[1] != self.window_dim:
+            if batch.shape[1] != self.dim:
                 raise ValueError("The width of a VectorSequenceSpace 'batch' "
                                  "must match with the space's window"
-                                 "dimension, but batch has window_dim %d and "
+                                 "dimension, but batch has dim %d and "
                                  "this space's dim is %d."
-                                 % (batch.shape[1], self.window_dim))
+                                 % (batch.shape[1], self.dim))
         else:
             if not isinstance(batch, theano.gof.Variable):
                 raise TypeError("VectorSequenceSpace batch should be a theano "
@@ -138,10 +122,7 @@ class VectorSequenceSpace(SimplyTypedSpace):
 
 class IndexSequenceSpace(SimplyTypedSpace):
     """
-    A space representing a single sequence as a column whose first dimension
-    represents time and whose second dimension represents an index.
-
-    For now, IndexSequenceSpace can only be converted to a VectorSequenceSpace.
+    A space representing a single, variable-length sequence of indexes.
 
     Parameters
     ----------
@@ -150,15 +131,13 @@ class IndexSequenceSpace(SimplyTypedSpace):
         all labels should be < max_labels. Example: For MNIST
         there are 10 numbers and hence max_labels = 10.
     dim : int
-        The number of indices in one space e.g. for MNIST there is
-        one target label and hence dim = 1. If we have an n-gram
-        of word indices as input to a neurel net language model, dim = n.
+        The number of indices in one element of the sequence
     dtype : str
         A numpy dtype string indicating this space's dtype.
         Must be an integer type e.g. int32 or int64.
     kwargs: passes on to superclass constructor
     """
-    def __init__(self, max_labels, window_dim, dtype='int64', **kwargs):
+    def __init__(self, max_labels, dim, dtype='int64', **kwargs):
         if not 'int' in dtype:
             raise ValueError("The dtype of IndexSequenceSpace must be an "
                              "integer type")
@@ -166,53 +145,52 @@ class IndexSequenceSpace(SimplyTypedSpace):
         super(IndexSequenceSpace, self).__init__(dtype, **kwargs)
 
         self.max_labels = max_labels
-        self.window_dim = window_dim
+        self.dim = dim
         self.formatter = OneHotFormatter(self.max_labels)
 
     def __str__(self):
         """
         Return a string representation.
         """
-        return ('%(classname)s(dim=%(window_dim)s, max_labels=%(max_labels)s, '
+        return ('%(classname)s(dim=%(dim)s, max_labels=%(max_labels)s, '
                 'dtype=%(dtype)s)') % dict(classname=self.__class__.__name__,
-                                           window_dim=self.window_dim,
+                                           dim=self.dim,
                                            max_labels=self.max_labels,
                                            dtype=self.dtype)
 
     def __eq__(self, other):
         return (type(self) == type(other) and
                 self.max_labels == other.max_labels and
-                self.window_dim == other.window_dim and
+                self.dim == other.dim and
                 self.dtype == other.dtype)
 
     @wraps(Space._check_sizes)
     def _check_sizes(self, space):
         if isinstance(space, VectorSequenceSpace):
             # self.max_labels -> merged onehots
-            # self.window_dim * self.max_labels -> concatenated
-            if space.window_dim not in (self.max_labels,
-                                        self.window_dim * self.max_labels):
+            # self.dim * self.max_labels -> concatenated
+            if space.dim not in (self.max_labels, self.dim * self.max_labels):
                 raise ValueError("Can't convert to VectorSequenceSpace of "
-                                 "window_dim %d. Expected either "
-                                 "window_dim=%d (merged one-hots) or %d "
+                                 "dim %d. Expected either "
+                                 "dim=%d (merged one-hots) or %d "
                                  "(concatenated one-hots)" %
-                                 (space.window_dim,
+                                 (space.dim,
                                   self.max_labels,
-                                  self.window_dim * self.max_labels))
+                                  self.dim * self.max_labels))
         elif isinstance(space, IndexSequenceSpace):
-            if space.window_dim != self.window_dim or space.max_labels != self.max_labels:
+            if space.dim != self.dim or space.max_labels != self.max_labels:
                 raise ValueError("Can't convert to IndexSequenceSpace of "
-                                 "window_dim %d and max_labels %d." %
-                                 (space.window_dim, self.max_labels))
+                                 "dim %d and max_labels %d." %
+                                 (space.dim, self.max_labels))
         else:
             raise ValueError("Can't convert to " + str(space.__class__))
 
     @wraps(Space._format_as_impl)
     def _format_as_impl(self, is_numeric, batch, space):
         if isinstance(space, VectorSequenceSpace):
-            if self.max_labels == space.window_dim:
+            if self.max_labels == space.dim:
                 mode = 'merge'
-            elif self.window_dim * self.max_labels == space.window_dim:
+            elif self.dim * self.max_labels == space.dim:
                 mode = 'concatenate'
             else:
                 raise ValueError("There is a bug. Couldn't format to a "
@@ -225,8 +203,8 @@ class IndexSequenceSpace(SimplyTypedSpace):
                            self.formatter.theano_expr)
             return _cast(format_func(batch, mode=mode), space.dtype)
         elif isinstance(space, IndexSequenceSpace):
-            if space.window_dim != self.window_dim or space.max_labels != self.max_labels:
-                raise ValueError("The two IndexSequenceSpaces' window_dim and "
+            if space.dim != self.dim or space.max_labels != self.max_labels:
+                raise ValueError("The two IndexSequenceSpaces' dim and "
                                  "max_labels values don't match. This should "
                                  "have been caught by "
                                  "IndexSequenceSpace._check_sizes().")
@@ -251,11 +229,6 @@ class IndexSequenceSpace(SimplyTypedSpace):
 
     @wraps(Space._validate_impl)
     def _validate_impl(self, is_numeric, batch):
-        """
-        .. todo::
-
-            WRITEME
-        """
         # checks that batch isn't a tuple, checks batch.type against self.dtype
         super(IndexSequenceSpace, self)._validate_impl(is_numeric, batch)
 
@@ -271,11 +244,11 @@ class IndexSequenceSpace(SimplyTypedSpace):
                 raise ValueError("The value of a IndexSequenceSpace batch "
                                  "must be 2D, got %d dimensions for %s." %
                                  (batch.ndim, batch))
-            if batch.shape[1] != self.window_dim:
+            if batch.shape[1] != self.dim:
                 raise ValueError("The width of a IndexSequenceSpace batch "
                                  "must match with the space's dimension, but "
-                                 "batch has shape %s and window_dim = %d." %
-                                 (str(batch.shape), self.window_dim))
+                                 "batch has shape %s and dim = %d." %
+                                 (str(batch.shape), self.dim))
         else:
             if not isinstance(batch, theano.gof.Variable):
                 raise TypeError("IndexSequenceSpace batch should be a theano "
