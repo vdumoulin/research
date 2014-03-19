@@ -22,10 +22,10 @@ class ToyRNN(Model):
 
         # Space initialization
         self.input_space = CompositeSpace([
-            VectorSequenceSpace(window_dim=self.nvis),
-            VectorSequenceSpace(window_dim=62)
+            VectorSequenceSpace(dim=self.nvis),
+            VectorSequenceSpace(dim=62)
         ])
-        self.output_space = VectorSequenceSpace(window_dim=1)
+        self.output_space = VectorSequenceSpace(dim=1)
         self.input_source = ('features', 'phones')
         self.target_source = 'targets'
 
@@ -74,6 +74,14 @@ class ToyRNN(Model):
                                                              taps=[-1]),
                                                         init_out])
         return out
+
+    def predict_next(self, features, phones, h_tm1):
+        h = T.nnet.sigmoid(T.dot(features, self.W) +
+                           T.dot(phones, self.V) +
+                           T.dot(h_tm1, self.M) +
+                           self.b)
+        out = T.dot(h, self.U) + self.c
+        return h, out
 
     def get_params(self):
         return [self.W, self.V, self.M, self.b, self.U, self.c]
@@ -125,9 +133,9 @@ if __name__ == "__main__":
                          outputs=cost_expression)
 
     valid_timit = TIMITSequences("valid", frame_length=100, audio_only=False)
-    data_specs = (CompositeSpace([VectorSequenceSpace(window_dim=100),
-                                  VectorSequenceSpace(window_dim=1),
-                                  VectorSequenceSpace(window_dim=62)]),
+    data_specs = (CompositeSpace([VectorSequenceSpace(dim=100),
+                                  VectorSequenceSpace(dim=1),
+                                  VectorSequenceSpace(dim=62)]),
                   ('features', 'targets', 'phones'))
     it = valid_timit.iterator(mode='sequential', data_specs=data_specs,
                               num_batches=10, batch_size=1)

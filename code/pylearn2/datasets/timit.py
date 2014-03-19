@@ -524,10 +524,10 @@ class TIMITSequences(Dataset):
         self.num_examples = len(samples_sequences)
 
         # DataSpecs
-        features_space = VectorSequenceSpace(window_dim=self.frame_length)
+        features_space = VectorSequenceSpace(dim=self.frame_length)
         features_source = 'features'
 
-        targets_space = VectorSequenceSpace(window_dim=1)
+        targets_space = VectorSequenceSpace(dim=1)
         targets_source = 'targets'
 
         space_components = [features_space, targets_space]
@@ -537,21 +537,21 @@ class TIMITSequences(Dataset):
         if not self.audio_only:
             phones_space = IndexSequenceSpace(
                 max_labels=self.num_phones,
-                window_dim=1,
+                dim=1,
                 dtype=str(self.phones_sequences[0].dtype)
             )
             phones_source = 'phones'
 
             phonemes_space = IndexSequenceSpace(
                 max_labels=self.num_phonemes,
-                window_dim=1,
+                dim=1,
                 dtype=str(self.phonemes_sequences[0].dtype)
             )
             phonemes_source = 'phonemes'
 
             words_space = IndexSequenceSpace(
                 max_labels=self.num_words,
-                window_dim=1,
+                dim=1,
                 dtype=str(self.words_sequences[0].dtype)
             )
             words_source = 'words'
@@ -731,9 +731,9 @@ class TIMITSequences(Dataset):
 
 if __name__ == "__main__":
     valid_timit = TIMITSequences("valid", frame_length=100, audio_only=False)
-    data_specs = (CompositeSpace([VectorSequenceSpace(window_dim=100),
-                                  VectorSequenceSpace(window_dim=1),
-                                  VectorSequenceSpace(window_dim=62)]),
+    data_specs = (CompositeSpace([VectorSequenceSpace(dim=100),
+                                  VectorSequenceSpace(dim=1),
+                                  VectorSequenceSpace(dim=62)]),
                   ('features', 'targets', 'phones'))
     it = valid_timit.iterator(mode='sequential', data_specs=data_specs,
                               num_batches=10, batch_size=1)
