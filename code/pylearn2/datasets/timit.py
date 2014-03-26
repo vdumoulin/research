@@ -14,10 +14,10 @@ import functools
 import numpy
 from pylearn2.utils.iteration import resolve_iterator_class
 from pylearn2.datasets.dataset import Dataset
-from pylearn2.space import CompositeSpace, VectorSpace, IndexSpace
+from pylearn2.space import CompositeSpace, VectorSpace, IndexSpace, Conv2DSpace
 from research.code.pylearn2.space import (
     VectorSequenceSpace,
-    IndexSequenceSpace
+    IndexSequenceSpace,
 )
 from pylearn2.utils import serial
 from pylearn2.utils import safe_zip
@@ -730,12 +730,12 @@ class TIMITSequences(Dataset):
 
 
 if __name__ == "__main__":
-    valid_timit = TIMITSequences("valid", frame_length=100, audio_only=False)
-    data_specs = (CompositeSpace([VectorSequenceSpace(dim=100),
-                                  VectorSequenceSpace(dim=1),
-                                  VectorSequenceSpace(dim=62)]),
-                  ('features', 'targets', 'phones'))
+    valid_timit = TIMIT("valid", frame_length=1, frames_per_example=100,
+                        audio_only=False)
+    data_specs = (Conv2DSpace(shape=[100, 1], num_channels=1, axes=('b', 0, 1, 'c')),
+                  'features')
     it = valid_timit.iterator(mode='sequential', data_specs=data_specs,
-                              num_batches=10, batch_size=1)
+                              num_batches=1, batch_size=10)
     for rval in it:
+        import pdb; pdb.set_trace()
         print [val.shape for val in rval]

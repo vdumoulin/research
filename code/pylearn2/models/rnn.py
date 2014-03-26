@@ -52,6 +52,14 @@ class ToyRNN(Model):
         c_value = numpy.zeros(1)
         self.c = sharedX(c_value, name='c')
 
+    def fprop_step(self, features, phones, h_tm1, out):
+        h = T.nnet.sigmoid(T.dot(features, self.W) +
+                           T.dot(phones, self.V) +
+                           T.dot(h_tm1, self.M) +
+                           self.b)
+        out = T.dot(h, self.U) + self.c
+        return h, out
+
     def fprop(self, data):
         self.input_space.validate(data)
         features, phones = data
@@ -60,15 +68,9 @@ class ToyRNN(Model):
         init_out = T.alloc(numpy.cast[theano.config.floatX](0), 1)
         init_out = T.unbroadcast(init_out, 0)
 
-        def fprop_step(features, phones, h_tm1, out):
-            h = T.nnet.sigmoid(T.dot(features, self.W) +
-                               T.dot(phones, self.V) +
-                               T.dot(h_tm1, self.M) +
-                               self.b)
-            out = T.dot(h, self.U) + self.c
-            return h, out
+        fn = lambda f, p, h, o: self.fprop_step(f, p, h, o)
 
-        ((h, out), updates) = theano.scan(fn=fprop_step,
+        ((h, out), updates) = theano.scan(fn=fn,
                                           sequences=[features, phones],
                                           outputs_info=[dict(initial=init_h,
                                                              taps=[-1]),
@@ -139,6 +141,6 @@ if __name__ == "__main__":
                   ('features', 'targets', 'phones'))
     it = valid_timit.iterator(mode='sequential', data_specs=data_specs,
                               num_batches=10, batch_size=1)
-    for f, p, t in it:
+    for f, t, p in it:
         print f.shape, p.shape, t.shape
         print fn(f, p, t)
