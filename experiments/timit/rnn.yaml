@@ -8,6 +8,7 @@
     model: !obj:research.code.pylearn2.models.rnn.ToyRNN {
         nvis: *frame_length,
         nhid: 100,
+        non_linearity: 'tanh'
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 1,

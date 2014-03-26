@@ -18,12 +18,9 @@ import scipy.io.wavfile as wf
 import theano.tensor as T
 import numpy
 import argparse
-import sys
 
 
 def main(model_path):
-    theano_rng = MRG_RandomStreams(987234)
-
     print 'Loading model...'
     model = serial.load(model_path)
 

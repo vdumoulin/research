@@ -16,9 +16,14 @@ class ToyRNN(Model):
     """
     WRITEME
     """
-    def __init__(self, nvis, nhid):
+    def __init__(self, nvis, nhid, non_linearity='sigmoid'):
+        allowed_non_linearities = {'sigmoid': T.nnet.sigmoid,
+                                   'tanh': T.tanh}
         self.nvis = nvis
         self.nhid = nhid
+
+        assert non_linearity in allowed_non_linearities
+        self.non_linearity = allowed_non_linearities[non_linearity]
 
         # Space initialization
         self.input_space = CompositeSpace([
@@ -53,10 +58,10 @@ class ToyRNN(Model):
         self.c = sharedX(c_value, name='c')
 
     def fprop_step(self, features, phones, h_tm1, out):
-        h = T.nnet.sigmoid(T.dot(features, self.W) +
-                           T.dot(phones, self.V) +
-                           T.dot(h_tm1, self.M) +
-                           self.b)
+        h = self.non_linearity(T.dot(features, self.W) +
+                               T.dot(phones, self.V) +
+                               T.dot(h_tm1, self.M) +
+                               self.b)
         out = T.dot(h, self.U) + self.c
         return h, out
 
