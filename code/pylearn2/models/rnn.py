@@ -16,11 +16,13 @@ class ToyRNN(Model):
     """
     WRITEME
     """
-    def __init__(self, nvis, nhid, non_linearity='sigmoid'):
+    def __init__(self, nvis, nhid, non_linearity='sigmoid',
+                 use_ground_truth=True):
         allowed_non_linearities = {'sigmoid': T.nnet.sigmoid,
                                    'tanh': T.tanh}
         self.nvis = nvis
         self.nhid = nhid
+        self.use_ground_truth = use_ground_truth
 
         assert non_linearity in allowed_non_linearities
         self.non_linearity = allowed_non_linearities[non_linearity]
@@ -65,22 +67,50 @@ class ToyRNN(Model):
         out = T.dot(h, self.U) + self.c
         return h, out
 
+    def fprop_step_prime(self, phones, features, h_tm1, out):
+        h = self.non_linearity(T.dot(features, self.W) +
+                               T.dot(phones, self.V) +
+                               T.dot(h_tm1, self.M) +
+                               self.b)
+        out = T.dot(h, self.U) + self.c
+        features = T.concatenate([features[1:], out])
+        return features, h, out
+
     def fprop(self, data):
-        self.input_space.validate(data)
-        features, phones = data
+        if self.use_ground_truth:
+            self.input_space.validate(data)
+            features, phones = data
 
-        init_h = T.alloc(numpy.cast[theano.config.floatX](0), self.nhid)
-        init_out = T.alloc(numpy.cast[theano.config.floatX](0), 1)
-        init_out = T.unbroadcast(init_out, 0)
+            init_h = T.alloc(numpy.cast[theano.config.floatX](0), self.nhid)
+            init_out = T.alloc(numpy.cast[theano.config.floatX](0), 1)
+            init_out = T.unbroadcast(init_out, 0)
 
-        fn = lambda f, p, h, o: self.fprop_step(f, p, h, o)
+            fn = lambda f, p, h, o: self.fprop_step(f, p, h, o)
 
-        ((h, out), updates) = theano.scan(fn=fn,
-                                          sequences=[features, phones],
-                                          outputs_info=[dict(initial=init_h,
-                                                             taps=[-1]),
-                                                        init_out])
-        return out
+            ((h, out), updates) = theano.scan(fn=fn,
+                                              sequences=[features, phones],
+                                              outputs_info=[dict(initial=init_h,
+                                                                 taps=[-1]),
+                                                            init_out])
+            return out
+        else:
+            self.input_space.validate(data)
+            features, phones = data
+
+            init_in = features[0]
+            init_h = T.alloc(numpy.cast[theano.config.floatX](0), self.nhid)
+            init_out = T.alloc(numpy.cast[theano.config.floatX](0), 1)
+            init_out = T.unbroadcast(init_out, 0)
+
+            fn = lambda p, f, h, o: self.fprop_step_prime(p, f, h, o)
+
+            ((f, h, out), updates) = theano.scan(fn=fn,
+                                                 sequences=[phones],
+                                                 outputs_info=[init_in,
+                                                               dict(initial=init_h,
+                                                                    taps=[-1]),
+                                                               init_out])
+            return out
 
     def predict_next(self, features, phones, h_tm1):
         h = T.nnet.sigmoid(T.dot(features, self.W) +
