@@ -4,6 +4,7 @@ WRITEME
 import numpy
 import theano
 import theano.tensor as T
+from theano.compat.python2x import OrderedDict
 from pylearn2.models.model import Model
 from pylearn2.space import CompositeSpace
 from research.code.pylearn2.space import VectorSequenceSpace
@@ -16,13 +17,15 @@ class ToyRNN(Model):
     """
     WRITEME
     """
-    def __init__(self, nvis, nhid, non_linearity='sigmoid',
+    def __init__(self, nvis, nhid, irange=0.05, non_linearity='sigmoid',
                  use_ground_truth=True):
         allowed_non_linearities = {'sigmoid': T.nnet.sigmoid,
                                    'tanh': T.tanh}
         self.nvis = nvis
         self.nhid = nhid
         self.use_ground_truth = use_ground_truth
+        self.alpha = sharedX(1)
+        self.alpha_decrease_rate = 0.9
 
         assert non_linearity in allowed_non_linearities
         self.non_linearity = allowed_non_linearities[non_linearity]
@@ -37,22 +40,22 @@ class ToyRNN(Model):
         self.target_source = 'targets'
 
         # Features-to-hidden matrix
-        W_value = numpy.random.uniform(low=-0.5, high=0.5,
+        W_value = numpy.random.uniform(low=-irange, high=irange,
                                        size=(self.nvis, self.nhid))
         self.W = sharedX(W_value, name='W')
         # Phones-to-hidden matrix
-        V_value = numpy.random.uniform(low=-0.5, high=0.5,
+        V_value = numpy.random.uniform(low=-irange, high=irange,
                                        size=(62, self.nhid))
         self.V = sharedX(V_value, name='V')
         # Hidden-to-hidden matrix
-        M_value = numpy.random.uniform(low=-0.5, high=0.5,
+        M_value = numpy.random.uniform(low=-irange, high=irange,
                                        size=(self.nhid, self.nhid))
         self.M = sharedX(M_value, name='M')
         # Hidden biases
         b_value = numpy.zeros(self.nhid)
         self.b = sharedX(b_value, name='b')
         # Hidden-to-out matrix
-        U_value = numpy.random.uniform(low=-0.5, high=0.5,
+        U_value = numpy.random.uniform(low=-irange, high=irange,
                                        size=(self.nhid, 1))
         self.U = sharedX(U_value, name='U')
         # Output bias
@@ -67,7 +70,9 @@ class ToyRNN(Model):
         out = T.dot(h, self.U) + self.c
         return h, out
 
-    def fprop_step_prime(self, phones, features, h_tm1, out):
+    def fprop_step_prime(self, truth, phones, features, h_tm1, out):
+        T.set_subtensor(features[-1],
+                        (1 - self.alpha) * features[-1] + self.alpha * truth[-1])
         h = self.non_linearity(T.dot(features, self.W) +
                                T.dot(phones, self.V) +
                                T.dot(h_tm1, self.M) +
@@ -102,10 +107,10 @@ class ToyRNN(Model):
             init_out = T.alloc(numpy.cast[theano.config.floatX](0), 1)
             init_out = T.unbroadcast(init_out, 0)
 
-            fn = lambda p, f, h, o: self.fprop_step_prime(p, f, h, o)
+            fn = lambda t, p, f, h, o: self.fprop_step_prime(t, p, f, h, o)
 
             ((f, h, out), updates) = theano.scan(fn=fn,
-                                                 sequences=[phones],
+                                                 sequences=[features, phones],
                                                  outputs_info=[init_in,
                                                                dict(initial=init_h,
                                                                     taps=[-1]),
@@ -128,6 +133,14 @@ class ToyRNN(Model):
 
     def get_target_source(self):
         return self.target_source
+
+    def censor_updates(self, updates):
+        updates[self.alpha] = self.alpha_decrease_rate * self.alpha
+
+    def get_monitoring_channels(self, data):
+        rval = OrderedDict()
+        rval['alpha'] = self.alpha
+        return rval
 
 
 class RNNCost(DefaultDataSpecsMixin, Cost):
