@@ -89,6 +89,12 @@ class TIMIT(Dataset):
                                            in self.phonemes]) + 1
             self.num_words = numpy.max([numpy.max(sequence) for sequence
                                         in self.words]) + 1
+            # The following is hard coded. However, the way it is done above
+            # could be problematic if a max value (the one over the whole
+            # dataset (train + valid + test) is not present in at least one
+            # one of the three subsets. This is the case for speakers. This is
+            # not the case for phones.
+            self.num_speakers = 630
 
         # Slice data
         if stop is not None:
@@ -97,12 +103,14 @@ class TIMIT(Dataset):
                 self.phones = self.phones[start:stop]
                 self.phonemes = self.phonemes[start:stop]
                 self.words = self.words[start:stop]
+                self.speaker_id = self.speaker_id[start:stop]
         else:
             self.raw_wav = self.raw_wav[start:]
             if not self.audio_only:
                 self.phones = self.phones[start:]
                 self.phonemes = self.phonemes[start:]
                 self.words = self.words[start:]
+                self.speaker_id = self.speaker_id[start:]
 
         examples_per_sequence = [0]
 
@@ -230,13 +238,22 @@ class TIMIT(Dataset):
                         + self.frames_per_example].ravel())
                 return rval
 
+            speaker_id_space = IndexSpace(max_labels=self.num_speakers, dim=1,
+                                          dtype=str(self.speaker_id.dtype))
+            speaker_id_source = 'speaker_id'
+            def speaker_id_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    rval.append(self.speaker_id[sequence_index].ravel())
+                return rval
+
             space_components.extend([phones_space, phonemes_space,
-                                     words_space])
+                                     words_space, speaker_id_space])
             source_components.extend([phones_source, phonemes_source,
-                                     words_source])
+                                     words_source, speaker_id_source])
             map_fn_components.extend([phones_map_fn, phonemes_map_fn,
-                                     words_map_fn])
-            batch_components.extend([None, None, None])
+                                     words_map_fn, speaker_id_map_fn])
+            batch_components.extend([None, None, None, None])
 
         space = CompositeSpace(space_components)
         source = tuple(source_components)
