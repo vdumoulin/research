@@ -1,11 +1,18 @@
 #!/usr/bin/env python
+__authors__ = ["Vincent Dumoulin"]
+__copyright__ = "Copyright 2014"
+__credits__ = ["Vincent Dumoulin"]
+__license__ = "3-clause BSD"
+__maintainer__ = "Vincent Dumoulin"
 """
-Monte Carlo estimator of pi.
+Source code for "A Ballistic Monte Carlo Approximation of pi".
 
-usage: code.py [-h] [-p PATH] [-v] [-s]
+usage: code.py [-h] [-e EXTRACT] [-p PATH] [-v] [-s]
 
 optional arguments:
   -h, --help            show this help message and exit
+  -e EXTRACT, --extract EXTRACT
+                        path to the directory containing sample images
   -p PATH, --path PATH  path to the directory containing sample images
   -v, --visualize       show figures being created
   -s, --save            save figures to disk
@@ -18,6 +25,9 @@ from matplotlib import pyplot
 from matplotlib import rc
 import scipy
 from scipy import ndimage
+
+
+numpy.random.seed(122973)
 
 
 # Pretty font for figures
@@ -57,7 +67,8 @@ def generate_synthetic_samples(num_samples=25000):
     return samples
 
 
-def estimate_pi(samples=None, show_results=False, save_results=False):
+def estimate_pi(samples=None, split=10000, show_results=False,
+                save_results=False):
     """
     Return a Monte Carlo estimation of pi.
 
@@ -78,6 +89,8 @@ def estimate_pi(samples=None, show_results=False, save_results=False):
     samples : numpy.ndarray, optional
         Data used to estimate the value of pi. Defaults to None, in which case
         synthetic samples are used.
+    split : int, optional
+        End index of the data used to estimate the PDF. Defaults to 5000.
     show_results : bool, optional
         Whether to display figures on screen. Defaults to `False`.
     save_results : bool, optional
@@ -88,12 +101,18 @@ def estimate_pi(samples=None, show_results=False, save_results=False):
         print 'Generating synthetic samples...'
         samples = generate_synthetic_samples(num_samples=25000)
 
-    x = samples[:, 0]
-    y = samples[:, 1]
+    numpy.random.shuffle(samples)
 
-    g = x ** 2 + y ** 2 <= 1.0
+    x = samples[:split, 0]
+    y = samples[:split, 1]
+    samples_x = samples[split:, 0]
+    samples_y = samples[split:, 1]
+
+    g = samples_x ** 2 + samples_y ** 2 <= 1.0
     print 'Estimating sample PDF...'
-    densities, x_bins, y_bins, sample_densities = _histogram_pdf(x, y)
+    densities, x_bins, y_bins, sample_densities = histogram_pdf(x, y,
+                                                                samples_x,
+                                                                samples_y)
 
     pi_estimate = 4 * (g / sample_densities).mean()
     pi_error = numpy.abs((pi_estimate - numpy.pi) / numpy.pi)
@@ -101,7 +120,7 @@ def estimate_pi(samples=None, show_results=False, save_results=False):
     # Print the estimate and relevant information
     print "The estimate of pi is %(pi)6.5f, with an error of %(error)4.2f%%" % \
         {"pi": pi_estimate, "error": 100 * pi_error}
-    print "Estimation done with %(n)i data points" % {'n': samples.shape[0]}
+    print "Estimation done with %(n)i data points" % {'n': samples_x.shape[0]}
 
     # Plot the data points along with the quarter circle for reference
     # Plot data points
@@ -110,8 +129,8 @@ def estimate_pi(samples=None, show_results=False, save_results=False):
     pyplot.xlabel('$x$')
     pyplot.ylabel('$y$')
     pyplot.axes().set_aspect('equal')
-    pyplot.scatter(x, y, marker='.', color='0.5', edgecolor='0.5',
-                   linewidth=0.25)
+    pyplot.scatter(samples_x, samples_y, marker='.', color='0.5',
+                   edgecolor='0.5', linewidth=0.25)
     theta = numpy.linspace(start=0.0, stop=numpy.pi/2.0, num=100)
     pyplot.plot(numpy.cos(theta), numpy.sin(theta), color='k',
                 linewidth=2.5, linestyle='--')
@@ -136,36 +155,45 @@ def estimate_pi(samples=None, show_results=False, save_results=False):
         pyplot.show()
 
 
-def histogram_pdf(x, y, x_min=0 - 1e-5, x_max=1 + 1e-5, y_min=0 - 1e-5,
-                  y_max=1 + 1e-5, min_bins=1, max_bins=50, num_folds=20):
+def histogram_pdf(x, y, samples_x, samples_y, x_min=0 - 1e-5, x_max=1 + 1e-5,
+                  y_min=0 - 1e-5, y_max=1 + 1e-5, min_bins=1, max_bins=50,
+                  num_folds=20):
     """
-    WRITEME
+    Estimate the PDF of a set of (x, y) coordinates using k-fold
+    cross-validation and compute the likelihood of a set of (samples_x,
+    samples_y) coordinates using this estimate
 
     Parameters
     ----------
-    x : `numpy.ndarray`
-        x-coordinates of the points
-    y : `numpy.ndarray`
-        y-coordinates of the points
-    x_min : `float`, optional
+    x : numpy.ndarray
+        x-coordinates of the points used to estimate the PDf
+    y : numpy.ndarray
+        y-coordinates of the points used to estimate the PDf
+    sample_x : numpy.ndarray
+        x-coordinates of the points for which to compute the likelihood
+    sample_y : numpy.ndarray
+        y-coordinates of the points for which to compute the likelihood
+    x_min : float, optional
         Lower bound for the x bins of the histogram. Defaults to 0.
-    x_max : `float`, optional
+    x_max : float, optional
         Upper bound for the x bins of the histogram. Defaults to 1.
-    y_min : `float`, optional
+    y_min : float, optional
         Lower bound for the y bins of the histogram. Defaults to 0.
-    y_max : `float`, optional
+    y_max : float, optional
         Upper bound for the y bins of the histogram. Defaults to 1.
-    min_bins : `int`, optional
-        WRITEME
-    max_bins : `int`, optional
-        WRITEME
+    min_bins : int, optional
+        Minimal number of bins to try
+    max_bins : int, optional
+        Maximal number of bins to try
+    num_folds : int, optional
+        Number of folds for cross-validation
 
     Returns
     -------
-    pdf : `numpy.ndarray`
-    x_bins : `numpy.ndarray`
-    y_bins : `numpy.ndarray`
-    densities : `numpy.ndarray`
+    pdf : numpy.ndarray
+    x_bins : numpy.ndarray
+    y_bins : numpy.ndarray
+    densities : numpy.ndarray
     """
     fold_indexes = []
     fold_length = x.shape[0] / num_folds
@@ -196,7 +224,13 @@ def histogram_pdf(x, y, x_min=0 - 1e-5, x_max=1 + 1e-5, y_min=0 - 1e-5,
                 optimal_log_likelihood = mean_log_likelihood
                 optimal_num_bins = num_bins
 
-    return _histogram_pdf(x, y, x_min, x_max, y_min, y_max, optimal_num_bins)
+    print "Optimal number of bins is " + str(optimal_num_bins)
+    pdf, x_bins, y_bins, __ = _histogram_pdf(x, y, x_min, x_max, y_min, y_max,
+                                             optimal_num_bins)
+    x_indexes = (samples_x / x_max * optimal_num_bins).astype(int)
+    y_indexes = (samples_y / y_max * optimal_num_bins).astype(int)
+    sample_densities = pdf[[x_indexes, y_indexes]]
+    return pdf, x_bins, y_bins, sample_densities
 
 
 def _histogram_pdf(x, y, x_min=0 - 1e-5, x_max=1 + 1e-5, y_min=0 - 1e-5,
@@ -243,7 +277,7 @@ def _histogram_pdf(x, y, x_min=0 - 1e-5, x_max=1 + 1e-5, y_min=0 - 1e-5,
     return pdf, x_bins, y_bins, densities
 
 
-def extract_samples(directory_path=None, show_results=False):
+def extract_samples(directory_path, show_results=False):
     """
     Extract data points from target scans located in `directory_path`
 
@@ -264,24 +298,18 @@ def extract_samples(directory_path=None, show_results=False):
     directory_path = abspath(directory_path)
     samples = []
     paths_list = []
-    if directory_path is not None:
-        paths_list.extend([join(directory_path, f) for f in
-                           listdir(directory_path) if
-                           isfile(join(directory_path, f))
-                           and f.endswith('jpg')])
-    else:
-        paths_list.append('/Users/vdumoulin/Development/sheldon/' +
-                          'presentations/pi-gun/test_image.jpg')
+    paths_list.extend([join(directory_path, f) for f in
+                       listdir(directory_path) if
+                       isfile(join(directory_path, f))
+                       and f.endswith('jpg')])
 
     for path in paths_list:
         # Load image
         image = scipy.misc.imread(path, flatten=True)
-        # Smooth the image (to remove small variations)
-        smoothed_image = ndimage.gaussian_filter(image, 0)
         # Set the threshold
         threshold = 50
         # Binarize the image according to the threshold
-        binarized_image = smoothed_image > threshold
+        binarized_image = image > threshold
         # Find connected components
         labeled_image, num_objects = ndimage.label(binarized_image)
         # Find all centers of mass
@@ -323,8 +351,10 @@ def extract_samples(directory_path=None, show_results=False):
 if __name__ == "__main__":
     # Argument parsing
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", default=None,
+    parser.add_argument("-e", "--extract", default=None,
                         help="path to the directory containing sample images")
+    parser.add_argument("-p", "--path", default=None,
+                        help="path to the sample file")
     parser.add_argument("-v", "--visualize", action="store_true",
                         help="show figures being created")
     parser.add_argument("-s", "--save", action="store_true",
@@ -333,6 +363,10 @@ if __name__ == "__main__":
 
     samples = None
     data_path = args.path
+    extract_path = args.extract
+    if extract_path is not None:
+        extract_samples(directory_path=extract_path,
+                        show_results=args.visualize)
     if data_path is not None:
         print 'Retrieving samples...'
         samples = numpy.load(data_path)
