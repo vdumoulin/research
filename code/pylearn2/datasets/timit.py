@@ -26,6 +26,9 @@ from research.code.pylearn2.utils.iteration import FiniteDatasetIterator
 import scipy.stats
 
 
+def index_from_one_hot(one_hot):
+    return numpy.where(one_hot == 1.0)[0][0]
+
 class TIMIT(Dataset):
     """
     Frame-based TIMIT dataset
@@ -90,8 +93,8 @@ class TIMIT(Dataset):
             self.num_words = numpy.max([numpy.max(sequence) for sequence
                                         in self.words]) + 1
             # The following is hard coded. However, the way it is done above
-            # could be problematic if a max value (the one over the whole
-            # dataset (train + valid + test) is not present in at least one
+            # could be problematic if a max value (the max over the whole
+            # dataset (train + valid + test)) is not present in at least one
             # one of the three subsets. This is the case for speakers. This is
             # not the case for phones.
             self.num_speakers = 630
@@ -247,13 +250,55 @@ class TIMIT(Dataset):
                     rval.append(self.speaker_id[sequence_index].ravel())
                 return rval
 
+            dialect_space = IndexSpace(max_labels=8, dim=1, dtype='int32')
+            dialect_source = 'dialect'
+            def dialect_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    info = self.speaker_info_list[self.speaker_id[sequence_index]]
+                    rval.append(index_from_one_hot(info[1:9]))
+                return rval
+
+            education_space = IndexSpace(max_labels=6, dim=1, dtype='int32')
+            education_source = 'education'
+            def education_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    info = self.speaker_info_list[self.speaker_id[sequence_index]]
+                    rval.append(index_from_one_hot(info[9:15]))
+                return rval
+
+            race_space = IndexSpace(max_labels=8, dim=1, dtype='int32')
+            race_source = 'race'
+            def race_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    info = self.speaker_info_list[self.speaker_id[sequence_index]]
+                    rval.append(index_from_one_hot(info[16:24]))
+                return rval
+              
+            gender_space = IndexSpace(max_labels=2, dim=1, dtype='int32')
+            gender_source = 'gender'
+            def gender_map_fn(indexes):
+                rval = []
+                for sequence_index, example_index in self._fetch_index(indexes):
+                    info = self.speaker_info_list[self.speaker_id[sequence_index]]
+                    rval.append(index_from_one_hot(info[24:]))
+                return rval
+
             space_components.extend([phones_space, phonemes_space,
-                                     words_space, speaker_id_space])
+                                     words_space, speaker_id_space,
+                                     dialect_space, education_space,
+                                     race_space, gender_space])
             source_components.extend([phones_source, phonemes_source,
-                                     words_source, speaker_id_source])
+                                     words_source, speaker_id_source,
+                                     dialect_source, education_source,
+                                     race_source, gender_source])
             map_fn_components.extend([phones_map_fn, phonemes_map_fn,
-                                     words_map_fn, speaker_id_map_fn])
-            batch_components.extend([None, None, None, None])
+                                     words_map_fn, speaker_id_map_fn,
+                                     dialect_map_fn, education_map_fn,
+                                     race_map_fn, gender_map_fn])
+            batch_components.extend([None, None, None, None, None, None, None, None])
 
         space = CompositeSpace(space_components)
         source = tuple(source_components)
