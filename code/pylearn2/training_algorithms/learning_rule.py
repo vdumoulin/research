@@ -4,33 +4,34 @@ from pylearn2.utils import wraps
 from pylearn2.training_algorithms.learning_rule import LearningRule
 
 
-class ChainedLearningRule(LearningRule):
+class CensorLearningRule(LearningRule):
     """
-    A learning rule which appliess a series of learning rules sequentially.
+    A learning rule which appliess a series of censorships to the gradients
+    and applies a user-defined learning rule.
 
     Parameters
     ----------
-    learning_rules : list of LearningRule
-        List of learning rules to apply, with the first element of the list
-        being applied first and the last element of the list being applied
-        last.
+    censors : list
+        Censorship objects
+    learning_rule : LearningRule
+        User-defined learning rule to apply
     """
-    def __init__(self, learning_rules):
-        self.learning_rules = learning_rules
+    def __init__(self, censors, learning_rule):
+        self.censors = censors
+        self.learning_rule = learning_rule
 
     @wraps(LearningRule.add_channels_to_monitor)
     def add_channels_to_monitor(self, monitor, monitoring_dataset):
-        for learning_rule in self.learning_rules:
-            learning_rule.add_channels_to_monitor(monitor, monitoring_dataset)
+        self.learning_rule.add_channels_to_monitor(monitor, monitoring_dataset)
 
     @wraps(LearningRule.get_updates)
     def get_updates(self, learning_rate, grads, lr_scalers=None):
-        for learning_rule in self.learning_rules:
-            grads = learning_rule.get_updates(learning_rate, grads, lr_scalers)
-        return grads
+        for censor in self.censors:
+            grads = censor.censor_gradients(grads)
+        return self.learning_rule.get_updates(learning_rate, grads, lr_scalers)
 
 
-class GradientClipping(LearningRule):
+class GradientClipping:
     """
     Clips gradients when they exceed a certain value.
     """
@@ -38,13 +39,8 @@ class GradientClipping(LearningRule):
         self.max_magnitude = max_magnitude
         self.rescale = rescale
 
-    @wraps(LearningRule.add_channels_to_monitor)
-    def add_channels_to_monitor(self, monitor, monitoring_dataset):
-        pass
-
-    @wraps(LearningRule.get_updates)
-    def get_updates(self, learning_rate, grads, lr_scalers=None):
-        updates = OrderedDict()
+    def censor_gradients(self, grads):
+        censored_grads = OrderedDict()
         if self.rescale:
             norm = 0
             for grad in grads.values():
@@ -52,14 +48,10 @@ class GradientClipping(LearningRule):
             norm = T.switch(T.sqrt(norm) > self.max_magnitude,
                             self.max_magnitude / T.sqrt(norm), 1.)
             for param, grad in grads.items():
-                updates[param] = param - learning_rate * (
-                    lr_scalers.get(param, 1.) * grad * norm
-                )
+                censored_grads[param] = grad * norm
         else:
             for param, grad in grads.items():
-                updates[param] = param - learning_rate * (
-                    lr_scalers.get(param, 1.) * T.clip(grad,
-                                                       -self.max_magnitude,
-                                                       self.max_magnitude)
-                )
-        return updates
+                censored_grads[param] = T.clip(grad,
+                                               -self.max_magnitude,
+                                               self.max_magnitude)
+        return censored_grads
