@@ -1,0 +1,28 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:research.code.pylearn2.datasets.timit.TIMITSequences {
+        which_set: 'train',
+        frame_length: &frame_length 200,
+        start: 0,
+        stop: 1,
+    },
+    model: !obj:research.code.pylearn2.models.rnn.ToyRNN {
+        nvis: *frame_length,
+        nhid: 1000,
+        non_linearity: 'tanh',
+        irange: 0.005,
+        use_ground_truth: 1,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 1,
+        learning_rate: 1e-2,
+        monitoring_dataset: {
+            'train': *train,
+        },
+        cost: !obj:research.code.pylearn2.models.rnn.RNNCost {},
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 500,
+        },
+    },
+    save_path: "./rnn_prime.pkl",
+    save_freq: 10,
+}

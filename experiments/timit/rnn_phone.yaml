@@ -1,13 +1,15 @@
 !obj:pylearn2.train.Train {
-    dataset: &train !obj:research.code.pylearn2.datasets.timit.TIMITSequences {
-        which_set: 'train',
-        frame_length: &frame_length 200,
-        start: 0,
-        stop: 1,
+    dataset: &train !obj:research.code.pylearn2.datasets.timit.TIMITPerPhone {
+        phone: 'aa',
+        frame_length: &frame_length 240,
+        max_examples: 1,
+        unit_norm: True,
+        standardize: True
     },
-    model: !obj:research.code.pylearn2.models.rnn.ToyRNN {
+    model: !obj:research.code.pylearn2.models.rnn.ToyRNNPhone {
         nvis: *frame_length,
-        nhid: &nhid 200,
+        nhid: &nhid 100,
+        # use_ground_truth: 0,
         hidden_transition_model: !obj:pylearn2.models.mlp.MLP {
             batch_size: 1,
             # nvis: *nhid,
@@ -43,30 +45,37 @@
                 },
             ],
         },
-        irange: 0.001,
+        irange: 0.005,
         non_linearity: 'tanh'
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        batch_size: 1,
-        learning_rate: 0.1,
-        learning_rule: !obj:research.code.pylearn2.training_algorithms.learning_rule.GradientClipping {
-            max_magnitude: 1.0,
-            rescale: 1,
+        batch_size: 200000,
+        learning_rate: 0.05,
+        learning_rule: !obj:research.code.pylearn2.training_algorithms.learning_rule.CensorLearningRule {
+            censors: [
+                !obj:research.code.pylearn2.training_algorithms.learning_rule.GradientClipping {
+                    max_magnitude: 1.0,
+                    rescale: 1,
+                },
+            ],
+            learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+                init_momentum: 0.95,
+            },
         },
         monitoring_dataset: {
             'train': *train,
         },
         cost: !obj:research.code.pylearn2.models.rnn.RNNCost {},
         termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
-            max_epochs: 500,
+            max_epochs: 1000,
         },
         update_callbacks: [
             !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
                 decay_factor: 1.0015,
-                min_lr:       0.01
+                min_lr:       0.001
             }
         ],
     },
-    save_path: "./rnn.pkl",
+    save_path: "./rnn_phone.pkl",
     save_freq: 10,
 }
