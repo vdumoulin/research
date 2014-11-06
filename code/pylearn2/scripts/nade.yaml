@@ -1,0 +1,46 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarized_mnist.BinarizedMNIST {
+        which_set: 'train',
+    },
+    model: !obj:research.code.pylearn2.models.directed_probabilistic.nade.NADE {
+        dim: 784,
+        dim_hid: 500,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 100,
+        learning_rate: 1e-3,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: 0.05,
+        },
+        monitoring_dataset: {
+            'train' : *train,
+            'valid' : !obj:pylearn2.datasets.binarized_mnist.BinarizedMNIST {
+                which_set: 'valid',
+            },
+            'test' : !obj:pylearn2.datasets.binarized_mnist.BinarizedMNIST {
+                which_set: 'test',
+            },
+        },
+        cost: !obj:research.code.pylearn2.costs.nade.NADECost {},
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 1500
+        },
+        update_callbacks: [
+            !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+                decay_factor: 1.0005,
+                min_lr:       0.0001
+            },
+        ],
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+            channel_name: 'valid_objective',
+            save_path: "nade_best.pkl",
+        },
+        !obj:pylearn2.training_algorithms.learning_rule.MomentumAdjustor {
+            final_momentum: .95,
+            start: 5,
+            saturate: 6
+        },
+    ],
+}
