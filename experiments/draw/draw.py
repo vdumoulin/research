@@ -52,9 +52,10 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.decoding_rnn.name = 'encoder_rnn'
         self.decoding_parameter_mapping = Linear(name='mu_theta')
 
-        self.prior_mu = tensor.zeros((self.nhid,), name='prior_mu')
-        self.prior_log_sigma = tensor.zeros(
-            (self.nhid,), name='prior_log_sigma')
+        self.prior_mu = tensor.zeros((self.nhid,))
+        self.prior_mu.name = 'prior_mu'
+        self.prior_log_sigma = tensor.zeros((self.nhid,))
+        self.prior_log_sigma.name='prior_log_sigma'
 
         self.children = [self.encoding_mlp, self.encoding_rnn,
                          self.encoding_parameter_mapping,
