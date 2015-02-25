@@ -1,6 +1,7 @@
 import cPickle
-import theano
 import itertools
+
+import theano
 from matplotlib import cm, pyplot
 
 
