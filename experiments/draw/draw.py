@@ -95,7 +95,7 @@ class DRAW(BaseRecurrent, Initializable, Random):
             + 0.5 * (
                 tensor.exp(2 * log_sigma_phi) + (mu_phi - prior_mu) ** 2
             ) / tensor.exp(2 * prior_log_sigma)
-            - 0.5).sum(axis=2).mean(axis=0)
+            - 0.5).sum(axis=2).sum(axis=0)
         kl_term.name = 'kl_term'
 
         reconstruction_term = - (
