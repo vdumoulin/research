@@ -4,7 +4,7 @@ import theano
 import fuel
 from blocks.algorithms import GradientDescent, RMSProp
 from blocks.bricks import MLP, Rectifier, Tanh, Identity
-from blocks.bricks.recurrent import SimpleRecurrent
+from blocks.bricks.recurrent import LSTM
 from blocks.extensions import FinishAfter, Timing, Printing, ProgressBar
 from blocks.extensions.monitoring import DataStreamMonitoring
 from blocks.extensions.saveload import SerializeMainLoop
@@ -30,11 +30,11 @@ def main(nvis, nhid, nlat, T=1):
     # Construct and initialize model
     encoding_mlp = MLP([Rectifier(), Identity()], [None, nhid, nhid])
     decoding_mlp = MLP([Rectifier(), Identity()], [None, nhid, nhid])
-    encoding_rnn = SimpleRecurrent(activation=Tanh())
-    decoding_rnn = SimpleRecurrent(activation=Tanh())
+    encoding_lstm = LSTM(dim=nhid)
+    decoding_lstm = LSTM(dim=nhid)
     draw = DRAW(nvis=nvis, nhid=nlat, T=T, encoding_mlp=encoding_mlp,
-                decoding_mlp=decoding_mlp, encoding_rnn=encoding_rnn,
-                decoding_rnn=decoding_rnn, biases_init=Constant(0),
+                decoding_mlp=decoding_mlp, encoding_lstm=encoding_lstm,
+                decoding_lstm=decoding_lstm, biases_init=Constant(0),
                 weights_init=IsotropicGaussian(std=0.001))
     draw.initialize()
 
