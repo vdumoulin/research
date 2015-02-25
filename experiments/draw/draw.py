@@ -59,6 +59,30 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.h_dec_mapping.input_dim = self.decoding_rnn.dim
         self.h_dec_mapping.output_dim = self.encoding_rnn.dim
 
+    def sample(self, num_samples):
+        z = self.theano_rng.normal(size=(self.T, num_samples, self.nhid),
+                                   avg=self.prior_mu,
+                                   std=tensor.exp(self.prior_log_sigma))
+        return tensor.nnet.sigmoid(self.decode_z(z)[0][-1])
+
+    @application(inputs=['x'], outputs=['x_hat'])
+    def reconstruct(self, x):
+        x_sequence = tensor.tile(x.dimshuffle('x', 0, 1), (self.T, 1, 1))
+        rval = self.apply(x_sequence)
+        return tensor.nnet.sigmoid(rval[0][-1])
+
+    @recurrent(sequences=['z'], contexts=[],
+               states=['c_states', 'decoding_states'],
+               outputs=['c_states', 'decoding_states'])
+    def decode_z(self, z, c_states=None, decoding_states=None):
+        h_mlp_theta = self.decoding_mlp.apply(z)
+        h_rnn_theta = self.decoding_rnn.apply(
+            inputs=h_mlp_theta, states=decoding_states, iterate=False)
+        new_c_states = (
+            c_states + self.decoding_parameter_mapping.apply(h_rnn_theta))
+
+        return new_c_states, h_rnn_theta
+
     @recurrent(sequences=['x'], contexts=[],
                states=['c_states', 'encoding_states', 'decoding_states'],
                outputs=['c_states', 'encoding_states', 'decoding_states',
