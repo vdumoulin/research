@@ -105,7 +105,7 @@ class DRAW(BaseRecurrent, Initializable, Random):
     def log_likelihood_lower_bound(self, x):
         x_sequence = tensor.tile(x.dimshuffle('x', 0, 1), (self.T, 1, 1))
         rval = self.apply(x_sequence)
-        mu_theta, mu_phi, log_sigma_phi = rval[0], rval[3], rval[4]
+        c_states, mu_phi, log_sigma_phi = rval[0], rval[3], rval[4]
 
         prior_mu = self.prior_mu.dimshuffle('x', 'x', 0)
         prior_log_sigma = self.prior_log_sigma.dimshuffle('x', 'x', 0)
@@ -118,8 +118,8 @@ class DRAW(BaseRecurrent, Initializable, Random):
         kl_term.name = 'kl_term'
 
         reconstruction_term = - (
-            x * tensor.nnet.softplus(-mu_theta[-1])
-            + (1 - x) * tensor.nnet.softplus(mu_theta[-1])).sum(axis=1)
+            x * tensor.nnet.softplus(-c_states[-1])
+            + (1 - x) * tensor.nnet.softplus(c_states[-1])).sum(axis=1)
         reconstruction_term.name = 'reconstruction_term'
 
         log_likelihood_lower_bound = reconstruction_term - kl_term
