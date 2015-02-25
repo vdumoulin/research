@@ -24,6 +24,8 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.encoding_parameter_mapping = Fork(
             output_names=['mu_phi', 'log_sigma_phi'], prototype=Linear())
 
+        self.h_dec_mapping = Linear(name='h_dec_mapping')
+
         self.decoding_mlp = decoding_mlp
         self.decoding_mlp.name = 'decoder_mlp'
         for i, child in enumerate(self.decoding_mlp.children):
@@ -40,7 +42,7 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.children = [self.encoding_mlp, self.encoding_rnn,
                          self.encoding_parameter_mapping,
                          self.decoding_mlp, self.decoding_rnn,
-                         self.decoding_parameter_mapping]
+                         self.decoding_parameter_mapping, self.h_dec_mapping]
 
     def _push_allocation_config(self):
         # The attention-less read operation concatenates x and x_hat, which
@@ -54,6 +56,8 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.decoding_rnn.dim = self.decoding_mlp.dims[-1]
         self.decoding_parameter_mapping.input_dim = self.decoding_rnn.dim
         self.decoding_parameter_mapping.output_dim = self.nvis
+        self.h_dec_mapping.input_dim = self.decoding_rnn.dim
+        self.h_dec_mapping.output_dim = self.encoding_rnn.dim
 
     @recurrent(sequences=['x'], contexts=[],
                states=['c_states', 'encoding_states', 'decoding_states'],
@@ -65,9 +69,9 @@ class DRAW(BaseRecurrent, Initializable, Random):
         # Concatenate x and x_hat
         r = tensor.concatenate([x, x_hat], axis=1)
         h_mlp_phi = self.encoding_mlp.apply(r)
-        # TODO: add dependency on h_{tm1}^{dec}
         h_rnn_phi = self.encoding_rnn.apply(
-            inputs=h_mlp_phi, states=encoding_states, iterate=False)
+            inputs=h_mlp_phi + self.h_dec_mapping.apply(decoding_states),
+            states=encoding_states, iterate=False)
         phi = self.encoding_parameter_mapping.apply(h_rnn_phi)
         mu_phi, log_sigma_phi = phi
         epsilon = self.theano_rng.normal(size=mu_phi.shape, dtype=mu_phi.dtype)
