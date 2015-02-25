@@ -119,16 +119,15 @@ class DRAW(BaseRecurrent, Initializable, Random):
         prior_mu = self.prior_mu.dimshuffle('x', 'x', 0)
         prior_log_sigma = self.prior_log_sigma.dimshuffle('x', 'x', 0)
         kl_term = (
-            prior_log_sigma - log_sigma_phi
-            + 0.5 * (
+            prior_log_sigma - log_sigma_phi +
+            0.5 * (
                 tensor.exp(2 * log_sigma_phi) + (mu_phi - prior_mu) ** 2
-            ) / tensor.exp(2 * prior_log_sigma)
-            - 0.5).sum(axis=2).sum(axis=0)
+            ) / tensor.exp(2 * prior_log_sigma) - 0.5).sum(axis=2).sum(axis=0)
         kl_term.name = 'kl_term'
 
         reconstruction_term = - (
-            x * tensor.nnet.softplus(-c_states[-1])
-            + (1 - x) * tensor.nnet.softplus(c_states[-1])).sum(axis=1)
+            x * tensor.nnet.softplus(-c_states[-1]) +
+            (1 - x) * tensor.nnet.softplus(c_states[-1])).sum(axis=1)
         reconstruction_term.name = 'reconstruction_term'
 
         log_likelihood_lower_bound = reconstruction_term - kl_term
