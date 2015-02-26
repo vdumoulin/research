@@ -24,15 +24,18 @@ from draw import DRAW
 fuel.config.floatX = theano.config.floatX
 
 
-def main(nvis, nhid, nlat, T=1):
+def main(nvis, nhid, encoding_mlp_dim, encoding_lstm_dim, decoding_mlp_dim,
+         decoding_lstm_dim, T=1):
     x = tensor.matrix('features')
 
     # Construct and initialize model
-    encoding_mlp = MLP([Rectifier(), Identity()], [None, nhid, nhid])
-    decoding_mlp = MLP([Rectifier(), Identity()], [None, nhid, nhid])
-    encoding_lstm = LSTM(dim=nhid)
-    decoding_lstm = LSTM(dim=nhid)
-    draw = DRAW(nvis=nvis, nhid=nlat, T=T, encoding_mlp=encoding_mlp,
+    encoding_mlp = MLP(
+        [Rectifier(), Identity()], [None, encoding_mlp_dim, None])
+    decoding_mlp = MLP(
+        [Rectifier(), Identity()], [None, decoding_mlp_dim, None])
+    encoding_lstm = LSTM(dim=encoding_lstm_dim)
+    decoding_lstm = LSTM(dim=decoding_lstm_dim)
+    draw = DRAW(nvis=nvis, nhid=nhid, T=T, encoding_mlp=encoding_mlp,
                 decoding_mlp=decoding_mlp, encoding_lstm=encoding_lstm,
                 decoding_lstm=decoding_lstm, biases_init=Constant(0),
                 weights_init=IsotropicGaussian(std=0.001))
@@ -96,4 +99,5 @@ def main(nvis, nhid, nlat, T=1):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main(nvis=784, nhid=200, nlat=25, T=10)
+    main(nvis=784, nhid=100, T=10, encoding_mlp_dim=256, encoding_lstm_dim=256,
+         decoding_mlp_dim=256, decoding_lstm_dim=256)
