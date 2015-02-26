@@ -3,14 +3,14 @@ import logging
 import theano
 import fuel
 from blocks.algorithms import GradientDescent, RMSProp
-from blocks.bricks import MLP, Rectifier, Tanh, Identity
+from blocks.bricks import MLP, Tanh
 from blocks.bricks.recurrent import LSTM
 from blocks.extensions import FinishAfter, Timing, Printing, ProgressBar
 from blocks.extensions.monitoring import DataStreamMonitoring
 from blocks.extensions.saveload import SerializeMainLoop
 from blocks.filter import VariableFilter
 from blocks.graph import ComputationGraph
-from blocks.initialization import Constant, IsotropicGaussian
+from blocks.initialization import Constant, Orthogonal, IsotropicGaussian
 from blocks.main_loop import MainLoop
 from blocks.model import Model
 from blocks.roles import PARAMETER
@@ -24,21 +24,21 @@ from draw import DRAW
 fuel.config.floatX = theano.config.floatX
 
 
-def main(nvis, nhid, encoding_mlp_dim, encoding_lstm_dim, decoding_mlp_dim,
-         decoding_lstm_dim, T=1):
+def main(nvis, nhid, encoding_lstm_dim, decoding_lstm_dim, T=1):
     x = tensor.matrix('features')
 
     # Construct and initialize model
-    encoding_mlp = MLP(
-        [Rectifier(), Identity()], [None, encoding_mlp_dim, None])
-    decoding_mlp = MLP(
-        [Rectifier(), Identity()], [None, decoding_mlp_dim, None])
+    encoding_mlp = MLP([Tanh()], [None, None])
+    decoding_mlp = MLP([Tanh()], [None, None])
     encoding_lstm = LSTM(dim=encoding_lstm_dim)
     decoding_lstm = LSTM(dim=decoding_lstm_dim)
     draw = DRAW(nvis=nvis, nhid=nhid, T=T, encoding_mlp=encoding_mlp,
                 decoding_mlp=decoding_mlp, encoding_lstm=encoding_lstm,
                 decoding_lstm=decoding_lstm, biases_init=Constant(0),
-                weights_init=IsotropicGaussian(std=0.001))
+                weights_init=Orthogonal())
+    draw.push_initialization_config()
+    encoding_lstm.weights_init = IsotropicGaussian(std=0.001)
+    decoding_lstm.weights_init = IsotropicGaussian(std=0.001)
     draw.initialize()
 
     # Compute cost
@@ -99,5 +99,4 @@ def main(nvis, nhid, encoding_mlp_dim, encoding_lstm_dim, decoding_mlp_dim,
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main(nvis=784, nhid=100, T=10, encoding_mlp_dim=256, encoding_lstm_dim=256,
-         decoding_mlp_dim=256, decoding_lstm_dim=256)
+    main(nvis=784, nhid=50, T=5, encoding_lstm_dim=200, decoding_lstm_dim=200)

@@ -24,8 +24,6 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.encoding_parameter_mapping = Fork(
             output_names=['mu_phi', 'log_sigma_phi'], prototype=Linear())
 
-        self.h_dec_mapping = Linear(name='h_dec_mapping')
-
         self.decoding_mlp = decoding_mlp
         self.decoding_mlp.name = 'decoder_mlp'
         for i, child in enumerate(self.decoding_mlp.children):
@@ -42,12 +40,14 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.children = [self.encoding_mlp, self.encoding_lstm,
                          self.encoding_parameter_mapping,
                          self.decoding_mlp, self.decoding_lstm,
-                         self.decoding_parameter_mapping, self.h_dec_mapping]
+                         self.decoding_parameter_mapping]
 
     def _push_allocation_config(self):
-        # The attention-less read operation concatenates x and x_hat, which
-        # is why the input to the encoding MLP is twice the size of x.
-        self.encoding_mlp.dims[0] = 2 * self.nvis
+        # The attention-less read operation concatenates x and x_hat, and
+        # we feed the decoder back into the encoder, which is why the input
+        # to the encoding MLP is twice the size of x plus the size of the
+        # decoding LSTM.
+        self.encoding_mlp.dims[0] = 2 * self.nvis + self.decoding_lstm.dim
         self.encoding_mlp.dims[-1] = 4 * self.encoding_lstm.dim
         self.encoding_parameter_mapping.input_dim = self.encoding_lstm.dim
         self.encoding_parameter_mapping.output_dims = dict(
@@ -56,8 +56,6 @@ class DRAW(BaseRecurrent, Initializable, Random):
         self.decoding_mlp.dims[-1] = 4 * self.decoding_lstm.dim
         self.decoding_parameter_mapping.input_dim = self.decoding_lstm.dim
         self.decoding_parameter_mapping.output_dim = self.nvis
-        self.h_dec_mapping.input_dim = self.decoding_lstm.dim
-        self.h_dec_mapping.output_dim = 4 * self.encoding_lstm.dim
 
     def sample(self, num_samples):
         z = self.theano_rng.normal(size=(self.T, num_samples, self.nhid),
@@ -96,10 +94,12 @@ class DRAW(BaseRecurrent, Initializable, Random):
         x_hat = x - tensor.nnet.sigmoid(c_states)
         # Concatenate x and x_hat
         r = tensor.concatenate([x, x_hat], axis=1)
-        h_mlp_phi = self.encoding_mlp.apply(r)
+        # Concatenate r and h_dec
+        h_mlp_phi = self.encoding_mlp.apply(
+            tensor.concatenate([r, decoding_states], axis=1))
         h_lstm_phi, cells_phi = self.encoding_lstm.apply(
-            inputs=h_mlp_phi + self.h_dec_mapping.apply(decoding_states),
-            states=encoding_states, cells=encoding_cells, iterate=False)
+            inputs=h_mlp_phi, states=encoding_states, cells=encoding_cells,
+            iterate=False)
         phi = self.encoding_parameter_mapping.apply(h_lstm_phi)
         mu_phi, log_sigma_phi = phi
         epsilon = self.theano_rng.normal(size=mu_phi.shape, dtype=mu_phi.dtype)
